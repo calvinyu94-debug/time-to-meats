@@ -82,10 +82,43 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 .note{background:#fff8e6;border:1px solid #f0dca0;border-radius:6px;padding:10px 12px;
   font-size:13px;color:#6a5a20;margin-top:12px;line-height:1.6;}
 
+/* ---------- SYNC STATUS CHIP ---------- */
+.syncchip{font-size:11px;font-weight:800;letter-spacing:.4px;padding:5px 11px;border-radius:20px;
+  min-height:26px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:default;
+  align-self:center;color:#fff;}
+.syncchip.synced{background:#1f7a44;}
+.syncchip.saving{background:#546670;}
+.syncchip.notsynced{background:#c9821f;cursor:help;}
+
+/* ---------- SIGN-IN OVERLAY ---------- */
+.signin-overlay{display:none;position:fixed;inset:0;z-index:1000;padding:20px;
+  background:linear-gradient(160deg,#263238,#37474F 60%,#455A64);
+  align-items:center;justify-content:center;font-family:var(--font);}
+.signin-overlay.on{display:flex;}
+.signin-card{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.4);
+  border-top:6px solid var(--accent);width:100%;max-width:360px;padding:26px 24px 22px;}
+.signin-brand{font-size:24px;font-weight:800;letter-spacing:.4px;color:#263238;}
+.signin-brand span{color:var(--code-fg);}
+.signin-sub{font-size:13px;color:#607078;margin:6px 0 14px;line-height:1.5;}
+.signin-l{display:block;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+  color:#37474F;margin:12px 0 4px;}
+.signin-in{width:100%;font-size:16px;padding:11px 12px;border:1.5px solid #b9ada6;border-radius:8px;
+  background:#fff;color:#1f1f1f;}
+.signin-in:focus{outline:none;border-color:var(--accent);}
+.signin-err{color:var(--code-fg);font-size:13px;font-weight:700;min-height:18px;margin:10px 0 0;}
+.signin-btn{width:100%;min-height:44px;margin-top:14px;background:var(--accent);color:#fff;border:none;
+  border-radius:8px;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:.3px;}
+.signin-btn:active{transform:translateY(1px);}
+.signin-btn:disabled{opacity:.6;cursor:default;}
+.signin-skip{display:block;text-align:center;margin-top:16px;font-size:12.5px;color:#607078;
+  text-decoration:underline;cursor:pointer;min-height:44px;line-height:1.4;
+  display:flex;align-items:center;justify-content:center;}
+
 @media print{
   @page{size:letter;margin:11mm;}
   body{background:#fff;}
   .toolbar,.panel,.hint,.badge,.col-tools,.col-code,.col-min,.addrow{display:none!important;}
+  .signin-overlay,.syncchip{display:none!important;}
   .sheet{box-shadow:none;margin:0;max-width:100%;border-radius:0;}
   .inner{padding:4px 6px;}
   td .cellin{background:transparent!important;border:none;}
@@ -143,6 +176,7 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
   body.menu-open #menuview{position:static;display:block;overflow:visible;}
   body.menu-open .mv-bar{display:none!important;}
   body.menu-open .mv-sheet{margin:0;max-width:100%;padding:0;}
+  .signin-overlay,.syncchip{display:none!important;}
 }
 #histview{display:none;position:fixed;inset:0;z-index:80;background:#eef2f4;overflow:auto;}
 #histview.on{display:block;}
@@ -182,6 +216,7 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
   body.sum-open .sv-bar{display:none!important;}
   body.sum-open .sv-sheet{margin:0;max-width:100%;padding:0;}
   #sumview{display:none;}
+  .signin-overlay,.syncchip{display:none!important;}
 }
 .hmonth-h b{font-size:15px;letter-spacing:.4px;}
 .hmonth-h span{font-size:12px;opacity:.85;}
@@ -202,7 +237,7 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 .hdetail th{color:#888;font-size:10.5px;text-transform:uppercase;}
 .hdetail td.r,.hdetail th.r{text-align:right;}
 .hempty{background:#fff;border:1px solid #dde4e7;border-radius:8px;padding:34px;text-align:center;color:#788;}
-@media print{#histview{display:none!important;}}
+@media print{#histview,.signin-overlay,.syncchip{display:none!important;}}
 @media screen and (max-width:700px){
   /* 1. SHELL */
   .sheet{margin:10px;border-radius:8px;}
@@ -342,6 +377,8 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   <button class="ghost" onclick="openHistory()">🕘 History</button>
   <button class="ghost" onclick="togglePanel()">✎ Prices &amp; Menu</button>
   <button onclick="openMenu()">📋 Generate Menu</button>
+  <span class="syncchip" id="syncchip"></span>
+  <button class="ghost" id="signoutbtn" onclick="signOut()" style="display:none">⎋ Sign out</button>
   <span class="hint">Pick a code → name &amp; price fill in · type the quantity · then Save / Print PDF</span>
 </div>
 
@@ -438,6 +475,19 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     <button class="ghost" onclick="closeSummary()">✕ Close</button>
   </div>
   <div class="sv-sheet" id="sumbody"></div>
+</div>
+<div class="signin-overlay" id="signin">
+  <div class="signin-card">
+    <div class="signin-brand">Time To <span>Meats</span></div>
+    <div class="signin-sub">Sign in to keep your orders and menu in sync across your laptop, phone and iPad.</div>
+    <label class="signin-l" for="si_email">Email</label>
+    <input id="si_email" class="signin-in" type="email" autocomplete="username" inputmode="email" onkeydown="if(event.key==='Enter')doSignIn()">
+    <label class="signin-l" for="si_pass">Password</label>
+    <input id="si_pass" class="signin-in" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doSignIn()">
+    <div class="signin-err" id="si_err"></div>
+    <button class="signin-btn" id="si_btn" onclick="doSignIn()">Sign in</button>
+    <a class="signin-skip" href="#" onclick="skipSignIn();return false;">Continue without signing in — this device won't sync</a>
+  </div>
 </div>
 <script>
 let MENU = [{"code": "A1", "name": "Beef Chuck Dice Prime Grade 頂級肥牛粒", "min": "1 lb", "price": 24.0, "cat": "Beef"}, {"code": "A2", "name": "Beef Chuck Sliced (Prime) 頂級肥牛", "min": "1 lb", "price": 25.0, "cat": "Beef"}, {"code": "A3", "name": "Beef Chuck Prime (Korean BBQ cut) 韓式燒烤肥牛", "min": "1 lb", "price": 28.0, "cat": "Beef"}, {"code": "A4", "name": "Beef Chuck Sliced AA 肥牛片 2A", "min": "1 lb", "price": 16.0, "cat": "Beef"}, {"code": "A5", "name": "Beef Chuck Sliced AAA 3A 肥牛片", "min": "1 lb", "price": 22.5, "cat": "Beef"}, {"code": "A6", "name": "Beef Digital Shank Sliced 金錢展片", "min": "1 lb", "price": 9.0, "cat": "Beef"}, {"code": "A7", "name": "Beef Digital Shank 金錢展", "min": "1 bag (2 lb)", "price": 8.5, "cat": "Beef"}, {"code": "A8", "name": "Beef Finger Meat (Italian Import) 手指腩", "min": "3-4 lb (Bag)", "price": 9.0, "cat": "Beef"}, {"code": "A9", "name": "Beef Flank (A+) Canada 崩沙腩", "min": "1 pc (3-4 lb)", "price": 7.0, "cat": "Beef"}, {"code": "A10", "name": "Beef Honey Comb 牛肚 (Bleach)", "min": "2 lb", "price": 8.0, "cat": "Beef"}, {"code": "A11", "name": "Beef Honey Comb 牛肚 (UnBleach)", "min": "2 lb", "price": 7.0, "cat": "Beef"}, {"code": "A12", "name": "Beef Intestine 牛腸", "min": "1 lb", "price": 5.0, "cat": "Beef"}, {"code": "A13", "name": "Beef New York AA 紐約牛扒", "min": "1 lb", "price": 13.0, "cat": "Beef"}, {"code": "A14", "name": "Beef New York AAA 紐約牛扒", "min": "1 lb", "price": 14.0, "cat": "Beef"}, {"code": "A15", "name": "Beef Omassume 牛栢葉", "min": "2 lb Bag", "price": 6.5, "cat": "Beef"}, {"code": "A16", "name": "Beef Oxtail Angus Trim 亞省靚牛尾", "min": "5 lb (2.5 lb/bg)", "price": 11.0, "cat": "Beef"}, {"code": "A17", "name": "Beef Porterhouse Steak AAA 腰上的牛排肉", "min": "1.5-2 lb (PC)", "price": 17.0, "cat": "Beef"}, {"code": "A18", "name": "Beef Ribeye A+ 1/3 BBQ 薄切肉眼扒", "min": "1 lb", "price": 9.0, "cat": "Beef"}, {"code": "A19", "name": "Beef Ribeye Angus 安格斯肉眼扒", "min": "1 lb", "price": 23.0, "cat": "Beef"}, {"code": "A20", "name": "Beef Ribeye Roll (Slices) GrassFed 炒牛肉", "min": "1 lb", "price": 8.5, "cat": "Beef"}, {"code": "A21", "name": "Beef Short Plate AA 牛腩", "min": "3 lb", "price": 7.0, "cat": "Beef"}, {"code": "A22", "name": "Beef Short Plate Sliced AA 牛腩片", "min": "1 lb", "price": 7.5, "cat": "Beef"}, {"code": "A23", "name": "Beef Short Rib AA (3骨牛仔骨) Germany", "min": "5 lb Min (2.5 lb/bg)", "price": 8.0, "cat": "Beef"}, {"code": "A24", "name": "Beef Short Rib Angus 1/2 3骨 牛仔骨 安格斯級", "min": "5 lb Min (2.5 lb/bg)", "price": 13.0, "cat": "Beef"}, {"code": "A25", "name": "Beef Tongue AA+ Whole 原條牛脷", "min": "2.5-3 lb / pc", "price": 8.0, "cat": "Beef"}, {"code": "A26", "name": "Beef Tongue AA Sliced 切片牛脷", "min": "1 lb/pk", "price": 17.0, "cat": "Beef"}, {"code": "A27", "name": "Beef T-Bone Steak T骨牛扒 AAA", "min": "2 lb", "price": 14.0, "cat": "Beef"}, {"code": "A28", "name": "Beef Tenderloin Cube or BBQ 牛柳 A+", "min": "2 lb Pack", "price": 16.0, "cat": "Beef"}, {"code": "A29", "name": "Beef Tendon AA+ 牛雙筋", "min": "2 pc Pack", "price": 7.0, "cat": "Beef"}, {"code": "A30", "name": "Beef Top Blade Sliced Angus+ 瘦牛肉片", "min": "1 lb Min", "price": 12.0, "cat": "Beef"}, {"code": "A31", "name": "Ground Beef Lean 90% 瘦碎牛", "min": "2 lb", "price": 7.0, "cat": "Beef"}, {"code": "P1", "name": "Ground Pork Small (Reg) 普通碎肉 80/20", "min": "2 lb", "price": 3.0, "cat": "Pork"}, {"code": "P2", "name": "Ground Pork Small 90% Lean 瘦碎豬肉", "min": "2 lb", "price": 3.5, "cat": "Pork"}, {"code": "P3", "name": "Pork Baby Back Rib 豬背排 (元件)", "min": "1 pc (1.5-2 lb)", "price": 5.5, "cat": "Pork"}, {"code": "P4", "name": "Pork Belly (Germany) Sliced 德國五花腩片", "min": "1 lb", "price": 5.0, "cat": "Pork"}, {"code": "P5", "name": "Pork Belly (Germany) Sliced Skinless 德國五花腩片 (冇皮)", "min": "1 lb", "price": 5.5, "cat": "Pork"}, {"code": "P6", "name": "Pork Belly (Whole) 完件五花腩", "min": "3 lb", "price": 5.0, "cat": "Pork"}, {"code": "P7", "name": "Pork Belly (Korean Style) 韓式五花腩", "min": "1 lb", "price": 5.5, "cat": "Pork"}, {"code": "P8", "name": "Pork Belly Strip (Germany) 德國五花腩條", "min": "1 lb", "price": 5.5, "cat": "Pork"}, {"code": "P9", "name": "Pork Buckeye 豬瘦肉", "min": "2 lb", "price": 3.5, "cat": "Pork"}, {"code": "P10", "name": "Pork Bung 豬大腸", "min": "1 lb", "price": 5.0, "cat": "Pork"}, {"code": "P11", "name": "Pork Butt Steak cut 1/2 有骨梅頭肉扒 無激素", "min": "2 lb", "price": 3.5, "cat": "Pork"}, {"code": "P12", "name": "Pork Collar Butt (No Antibiotic) 無激素叉燒肉", "min": "3-4 lb", "price": 4.0, "cat": "Pork"}, {"code": "P13", "name": "Pork Collar Butt 1x1 咕嚕肉", "min": "2 lb", "price": 4.0, "cat": "Pork"}, {"code": "P14", "name": "Pork Collar Butt Slices (NA) 梅頭肉片 (無激素)", "min": "1 lb", "price": 4.5, "cat": "Pork"}, {"code": "P15", "name": "Pork Collar Butt 1/3 BBQ 切梅頭肉扒", "min": "1 lb", "price": 4.0, "cat": "Pork"}, {"code": "P16", "name": "Pork Diaphragm Meat 豬肝連", "min": "1 lb", "price": 4.0, "cat": "Pork"}, {"code": "P17", "name": "Pork Feet cut 豬手介 2x2 前手", "min": "2 lb", "price": 3.0, "cat": "Pork"}, {"code": "P18", "name": "Pork Hock Bnl 去骨分蹄 (No Antibiotic)", "min": "5 lb", "price": 4.5, "cat": "Pork"}, {"code": "P19", "name": "Pork Shank 豬展 (No Antibiotic)", "min": "1 lb", "price": 5.0, "cat": "Pork"}, {"code": "P20", "name": "Pork Jowl Sliced 豬頸脊片 (No Antibiotic)", "min": "1 lb", "price": 11.5, "cat": "Pork"}, {"code": "P21", "name": "Pork Jowl 豬頸脊 (No Antibiotic)", "min": "1 lb", "price": 11.0, "cat": "Pork"}, {"code": "P22", "name": "Pork Loin Bone In 有骨豬扒 1/2", "min": "4 lb", "price": 3.5, "cat": "Pork"}, {"code": "P23", "name": "Pork Loins Boneless 玉眼扒 1/2", "min": "4 lb", "price": 4.0, "cat": "Pork"}, {"code": "P24", "name": "Pork Neck Bone 豬頸骨", "min": "2 lb", "price": 2.5, "cat": "Pork"}, {"code": "P25", "name": "Pork Plate Bone 多肉西施骨 (No Antibiotic)", "min": "2 lb", "price": 3.5, "cat": "Pork"}, {"code": "P26", "name": "Pork Side Rib Meaty 1x1 多肉介排骨粒 1x1 (CAD)", "min": "4 lb (2 lb/bg)", "price": 4.5, "cat": "Pork"}, {"code": "P27", "name": "Pork Soft Bone 豬軟骨 (No Antibiotic)", "min": "1 lb", "price": 3.5, "cat": "Pork"}, {"code": "P28", "name": "Pork Stomach 豬肚 (No Antibiotic)", "min": "2 pc (Bag)", "price": 4.0, "cat": "Pork"}, {"code": "C1", "name": "Chicken Breast Bnl Snl 去皮去骨雞胸肉", "min": "2 lb", "price": 6.0, "cat": "Chicken / Duck / Squab"}, {"code": "C2", "name": "Chicken Drumstick 雞髀仔", "min": "2 lb", "price": 2.5, "cat": "Chicken / Duck / Squab"}, {"code": "C3", "name": "Chicken Leg - Boneless Skin On 去骨雞肶", "min": "2 lb", "price": 5.0, "cat": "Chicken / Duck / Squab"}, {"code": "C4", "name": "Chicken Paw XL 特大雞腳", "min": "3 lb", "price": 5.0, "cat": "Chicken / Duck / Squab"}, {"code": "C5", "name": "Chicken Soft Bone 雞軟骨", "min": "2 lb", "price": 7.0, "cat": "Chicken / Duck / Squab"}, {"code": "C6", "name": "Chicken Thigh - Snl Bnl 去皮去骨雞俾肉", "min": "2 lb", "price": 5.5, "cat": "Chicken / Duck / Squab"}, {"code": "C7", "name": "Chicken Whole Wings 雞全亦", "min": "2 lb", "price": 4.0, "cat": "Chicken / Duck / Squab"}, {"code": "C8", "name": "Chicken Wing-Split (Wingetts+Drumstts) 雞斬亦", "min": "3 lb", "price": 4.5, "cat": "Chicken / Duck / Squab"}, {"code": "C9", "name": "Chicken Wingettes (Ukraine) IQF", "min": "2 lb", "price": 4.5, "cat": "Chicken / Duck / Squab"}, {"code": "C10", "name": "Duck (Bloomlake) 4.5-5 lb per bird", "min": "Per Bird", "price": 25.0, "cat": "Chicken / Duck / Squab"}, {"code": "C11", "name": "Duck Breast 鴨胸", "min": "1 lb", "price": 11.0, "cat": "Chicken / Duck / Squab"}, {"code": "C12", "name": "Duck Feet 鴨腳", "min": "1 lb", "price": 4.0, "cat": "Chicken / Duck / Squab"}, {"code": "C13", "name": "Duck Gizzard 鴨腎", "min": "1 lb", "price": 6.0, "cat": "Chicken / Duck / Squab"}, {"code": "C14", "name": "Duck Leg 鴨髀", "min": "1 lb", "price": 9.0, "cat": "Chicken / Duck / Squab"}, {"code": "C15", "name": "Free Range Chicken (Large) Female 雞行", "min": "1 bird / pc", "price": 20.0, "cat": "Chicken / Duck / Squab"}, {"code": "C16", "name": "Free Range Chicken (Utility) 走地雞", "min": "1 bird / pc", "price": 18.0, "cat": "Chicken / Duck / Squab"}, {"code": "C17", "name": "Free Range Chicken (XL) 特大走地雞", "min": "1 bird / pc", "price": 21.0, "cat": "Chicken / Duck / Squab"}, {"code": "C18", "name": "Goose Feet 鵝掌", "min": "1 bag (2-2.5 lb) / lb", "price": 9.0, "cat": "Chicken / Duck / Squab"}, {"code": "C19", "name": "Silkie 竹絲雞", "min": "1 pc (2.5-3 lb) / lb", "price": 7.0, "cat": "Chicken / Duck / Squab"}, {"code": "S1", "name": "Tiger Shrimp 13-15 越南老虎蝦", "min": "1 bag", "price": 16.0, "cat": "Seafood"}, {"code": "S2", "name": "Tiger Shrimp 16-20 越南老虎蝦", "min": "1 bag", "price": 15.0, "cat": "Seafood"}, {"code": "S3", "name": "Squid Tentacle 魷魚鬚 15-170 gram/pk", "min": "1 bag", "price": 12.0, "cat": "Seafood"}, {"code": "S4", "name": "Scallop (Canadian) U10-20", "min": "1 lb", "price": 27.0, "cat": "Seafood"}, {"code": "S5", "name": "Greenland Turbot Steak 龍鱈魚扒", "min": "1 lb", "price": 12.0, "cat": "Seafood"}, {"code": "S6", "name": "Cuttle Fish Baby 墨魚仔 20-40", "min": "1 pk (1 lb)", "price": 7.0, "cat": "Seafood"}, {"code": "L1", "name": "Goat Dice 黑草羊 (粒)", "min": "3 lb", "price": 7.0, "cat": "Lamb"}, {"code": "L2", "name": "Lamb Belly 羊腩", "min": "2 lb", "price": 6.0, "cat": "Lamb"}, {"code": "L3", "name": "Lamb Rack (French) 法式羊架 16-18 NZ", "min": "2 pc/pk", "price": 23.0, "cat": "Lamb"}, {"code": "L4", "name": "Lamb Shank Bone In Skinless 有骨小羊展", "min": "1 pc (2-3 lb)", "price": 7.0, "cat": "Lamb"}, {"code": "L5", "name": "Lamb Shoulder Bone In - Great for BBQ 羊肩扒 1/3", "min": "2 lb", "price": 8.0, "cat": "Lamb"}, {"code": "L6", "name": "Lamb Sliced (Bnl Snl) 羊肉片", "min": "2 lb", "price": 10.0, "cat": "Lamb"}, {"code": "SPL1", "name": "Beef Back Rib 牛肋骨", "min": "5 lb", "price": 5.0, "cat": "Special Items"}, {"code": "SPL2", "name": "Beef Chuck Flap 牛肩肉 (Slices)", "min": "1 lb", "price": 16.0, "cat": "Special Items"}, {"code": "SPL3", "name": "Beef Intestine 牛腸", "min": "1 lb", "price": 5.0, "cat": "Special Items"}, {"code": "SPL4", "name": "Beef Lung cut 2x2 inch 牛肺", "min": "2 lb", "price": 4.0, "cat": "Special Items"}, {"code": "SPL5", "name": "Beef Spleen cut 2x2 inch 牛蒡", "min": "2 lb", "price": 4.0, "cat": "Special Items"}, {"code": "SPL6", "name": "Pork Back Rib Strip 一字骨", "min": "1 lb", "price": 4.0, "cat": "Special Items"}, {"code": "SPL7", "name": "Pork Intestine 豬生腸", "min": "1 lb", "price": 7.0, "cat": "Special Items"}, {"code": "SPL8", "name": "Whelk L 大螺頭", "min": "1 lb", "price": 25.0, "cat": "Special Items"}, {"code": "SPL9", "name": "Whole Afryer (No Antibiotic) 原隻白雞 (無激素)", "min": "1 pc (3-4 lb)", "price": 4.0, "cat": "Special Items"}, {"code": "SPL10", "name": "Sirloin Tip Steak (Snake River Farm)", "min": "1 lb", "price": 8.99, "cat": "Special Items"}, {"code": "M1", "name": "Chicken & Bok Choy Dumpling 雞肉白菜餃子", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M2", "name": "Dumpling Wrappers 餃子皮 - Oval 50s", "min": "1 lb", "price": 4.0, "cat": "Miscellaneous"}, {"code": "M3", "name": "Fish Tofu 魚腐", "min": "1 lb", "price": 8.0, "cat": "Miscellaneous"}, {"code": "M4", "name": "Fishball 馬來西亞魚旦", "min": "1 lb", "price": 6.0, "cat": "Miscellaneous"}, {"code": "M5", "name": "Flat Noodle 刀切面", "min": "1 lb", "price": 4.0, "cat": "Miscellaneous"}, {"code": "M6", "name": "Fried Fishball 馬來西亞炸魚旦", "min": "1 lb", "price": 6.0, "cat": "Miscellaneous"}, {"code": "M7", "name": "Gyoza 日式餃子", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M8", "name": "Pork & Cabbage Dumpling 高麗菜豬肉餃", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M9", "name": "Pork & Chive Dumpling 韭菜豬肉餃子", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M10", "name": "Pork & Siu Choy Dumpling 紹菜豬肉餃", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M11", "name": "Pork & WaterCress Dumpling 西洋菜豬肉餃子", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M12", "name": "Pork Celery Dumpling 芹菜豬肉餃", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M13", "name": "Pork, Shrimp & Chives Dumpling 三鮮豬肉餃", "min": "1 kg", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M14", "name": "Rolled Rice Noodle 腸粉", "min": "3 lb", "price": 3.5, "cat": "Miscellaneous"}, {"code": "M15", "name": "Shanghai XiaoLong Bao 上海小籠包 (50 pc)", "min": "50 pc", "price": 31.0, "cat": "Miscellaneous"}, {"code": "M16", "name": "Shanghai XiaoLong Bao 上海小籠包 (20 pc)", "min": "20 pc", "price": 17.0, "cat": "Miscellaneous"}, {"code": "M17", "name": "Soup Noodle 湯河粉", "min": "3 lb", "price": 3.5, "cat": "Miscellaneous"}, {"code": "M18", "name": "Thin Soup Noodle 陽春面", "min": "1 lb", "price": 3.5, "cat": "Miscellaneous"}, {"code": "M19", "name": "Thin/Thick Ramen Shanghai Style 上海拉麵", "min": "1 lb", "price": 3.0, "cat": "Miscellaneous"}, {"code": "M20", "name": "Wonton Noodles 廣東雲吞麵", "min": "5 lb", "price": 16.0, "cat": "Miscellaneous"}, {"code": "M21", "name": "Yellow Thick/Thin Noodles 油面", "min": "5 lb", "price": 11.0, "cat": "Miscellaneous"}, {"code": "M22", "name": "Chow Mein 炒麵", "min": "5 lb", "price": 15.0, "cat": "Miscellaneous"}];
@@ -727,5 +777,209 @@ function renderSummary(key){
     `<div class="sv-h3">Orders</div><table class="sv-table"><thead><tr><th>Date</th><th>Customer</th><th>Delivery</th><th class="r">Items</th><th class="r">Total</th></tr></thead><tbody>${orderRows}</tbody></table>`+
     `<div class="sv-h3">Product Breakdown</div><table class="sv-table"><thead><tr><th>Code</th><th>Item</th><th class="r">Qty</th><th class="r">Revenue</th></tr></thead><tbody>${prodRows}</tbody></table>`;
 }
-loadMenuLocal();loadOrdersLocal();refreshDatalist();renderMenu();ensureBlank();$('f_order').value=todayISO();
+/* ================= SUPABASE SYNC (shared backing store) =================
+   Local-first: localStorage stays the source of truth on-device (LSKEY / LSKEY_O
+   are never touched by this module). On top of that we mirror the two keys
+   ('menu','orders') into Supabase so the laptop, phone and iPad share one copy.
+   Pull is server-wins by default; a confirm dialog covers the case where both
+   sides hold saved orders. Push is debounced and fire-and-forget so a network
+   outage never blocks or undoes a local save. */
+const SB_URL='https://oaognuwairyvjeoiyzux.supabase.co';
+const SB_KEY='sb_publishable_uV62yzrCs899vxg_tpL-Jg_Tw1HUTDj';
+const SESSKEY='ttm_session_v1';   /* access/refresh token + user_id */
+const DIRTYKEY='ttm_dirty_v1';    /* set when a save happened without a successful push */
+let SB={access_token:null,refresh_token:null,user_id:null};
+let syncMode='local';             /* 'cloud' once a session is active, else 'local' */
+let _suppressPush=false;          /* true while applying server data, to avoid echo pushes */
+let _pushFailed=false;
+
+/* ----- session storage (independent of LSKEY / LSKEY_O) ----- */
+function loadSession(){try{const s=localStorage.getItem(SESSKEY);if(s){const o=JSON.parse(s);
+  if(o&&o.access_token&&o.user_id){SB={access_token:o.access_token,refresh_token:o.refresh_token||null,user_id:o.user_id};return true;}}}catch(e){}return false;}
+function saveSession(o){SB={access_token:o.access_token||null,refresh_token:o.refresh_token||null,user_id:o.user_id||null};
+  try{localStorage.setItem(SESSKEY,JSON.stringify(SB));}catch(e){}}
+function clearSession(){SB={access_token:null,refresh_token:null,user_id:null};try{localStorage.removeItem(SESSKEY);}catch(e){}}
+
+/* ----- dirty flag (drives the status chip only) ----- */
+function markDirty(){try{localStorage.setItem(DIRTYKEY,'1');}catch(e){}}
+function clearDirty(){try{localStorage.removeItem(DIRTYKEY);}catch(e){}}
+
+/* ----- status chip ----- */
+function setChipState(s){const el=$('syncchip');if(!el)return;
+  if(s==='synced'){el.className='syncchip synced';el.textContent='● Synced';el.title='Your orders and menu are up to date in the cloud.';}
+  else if(s==='saving'){el.className='syncchip saving';el.textContent='⟳ Saving…';el.title='Uploading your latest changes…';}
+  else if(s==='local'){el.className='syncchip notsynced';el.textContent='● Not synced';el.title='You are not signed in — changes are saved on this device only.';}
+  else{el.className='syncchip notsynced';el.textContent='● Not synced';el.title='Your changes are saved on this device but not yet uploaded.';}}
+
+/* ----- overlay ----- */
+function showSignin(){const el=$('signin');if(el)el.classList.add('on');}
+function hideSignin(){const el=$('signin');if(el)el.classList.remove('on');}
+
+/* ----- auth REST calls (no client library) ----- */
+async function sbSignIn(email,password){
+  const r=await fetch(SB_URL+'/auth/v1/token?grant_type=password',{method:'POST',
+    headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email:email,password:password})});
+  if(!r.ok)throw new Error('signin_failed');
+  const j=await r.json();
+  saveSession({access_token:j.access_token,refresh_token:j.refresh_token,user_id:j.user&&j.user.id});
+  return j;}
+async function sbRefresh(){
+  if(!SB.refresh_token)return false;
+  let r;try{r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',
+    headers:{'apikey':SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:SB.refresh_token})});}catch(e){return false;}
+  if(!r.ok)return false;
+  let j;try{j=await r.json();}catch(e){return false;}
+  if(!j.access_token)return false;
+  saveSession({access_token:j.access_token,refresh_token:j.refresh_token||SB.refresh_token,user_id:(j.user&&j.user.id)||SB.user_id});
+  return true;}
+
+/* ----- read all rows; refresh once on 401 ----- */
+async function sbReadRows(){
+  const get=()=>fetch(SB_URL+'/rest/v1/app_state?select=key,value,updated_at',
+    {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB.access_token}});
+  let r;try{r=await get();}catch(e){return {ok:false,net:true};}
+  if(r.status===401){
+    if(!(await sbRefresh()))return {ok:false,auth:true};
+    try{r=await get();}catch(e){return {ok:false,net:true};}
+    if(r.status===401)return {ok:false,auth:true};}
+  if(!r.ok)return {ok:false};
+  let rows;try{rows=await r.json();}catch(e){return {ok:false};}
+  return {ok:true,rows:Array.isArray(rows)?rows:[]};}
+
+/* ----- write one key; refresh once on 401, then give up quietly ----- */
+async function sbWrite(key,value){
+  const body=JSON.stringify([{user_id:SB.user_id,key:key,value:value,updated_at:new Date().toISOString()}]);
+  const post=()=>fetch(SB_URL+'/rest/v1/app_state',{method:'POST',
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB.access_token,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+    body:body});
+  let r;try{r=await post();}catch(e){return false;}
+  if(r.status===401){
+    if(!(await sbRefresh()))return false;
+    try{r=await post();}catch(e){return false;}}
+  return !!r.ok;}
+
+async function pushBoth(){
+  let ok1=false,ok2=false;
+  try{ok1=await sbWrite('menu',MENU);}catch(e){ok1=false;}
+  try{ok2=await sbWrite('orders',ORDERS);}catch(e){ok2=false;}
+  if(ok1&&ok2){_pushFailed=false;clearDirty();setChipState('synced');}
+  else{_pushFailed=true;markDirty();setChipState('notsynced');}
+  return ok1&&ok2;}
+
+/* ----- debounced, fire-and-forget push on local save ----- */
+const _needPush=new Set();
+let _pushTimer=null;
+function schedulePush(key){
+  if(_suppressPush)return;
+  if(syncMode!=='cloud'){markDirty();setChipState('local');return;}
+  _needPush.add(key);
+  setChipState('saving');
+  clearTimeout(_pushTimer);
+  _pushTimer=setTimeout(function(){flushPushes();},800);}
+async function flushPushes(){
+  if(syncMode!=='cloud')return;
+  const keys=Array.from(_needPush);
+  let allOk=true;
+  for(let i=0;i<keys.length;i++){
+    const key=keys[i];const value=(key==='menu')?MENU:ORDERS;
+    let ok=false;try{ok=await sbWrite(key,value);}catch(e){ok=false;}
+    if(ok)_needPush.delete(key);else allOk=false;}
+  if(allOk&&_needPush.size===0){_pushFailed=false;clearDirty();setChipState('synced');}
+  else{_pushFailed=true;markDirty();setChipState('notsynced');}}
+
+/* ----- wrap the two local-save functions so every successful save pushes -----
+   The original bodies are untouched; we only append a debounced push. */
+const _origSaveMenuLocal=saveMenuLocal;
+saveMenuLocal=function(){const r=_origSaveMenuLocal.apply(this,arguments);schedulePush('menu');return r;};
+const _origSaveOrdersLocal=saveOrdersLocal;
+saveOrdersLocal=function(){const r=_origSaveOrdersLocal.apply(this,arguments);schedulePush('orders');return r;};
+
+/* ----- apply server rows to local (server-wins); keep the browser copy in step ----- */
+function applyServer(sMenu,sOrders){
+  _suppressPush=true;
+  if(Array.isArray(sMenu)){MENU=sMenu;saveMenuLocal();}
+  if(Array.isArray(sOrders)){ORDERS=sOrders;saveOrdersLocal();}
+  _suppressPush=false;}
+
+function latestOrderDate(arr){if(!arr||!arr.length)return '—';let d='';
+  arr.forEach(o=>{const x=(o&&o.orderDate)||'';if(x>d)d=x;});return d||'—';}
+
+/* ----- conflict prompt: both sides hold saved orders ----- */
+function askConflict(sOrders,lOrders){
+  const sc=Array.isArray(sOrders)?sOrders.length:0,lc=Array.isArray(lOrders)?lOrders.length:0;
+  const msg='Your saved orders are different on this device and in the cloud.\n\n'+
+    'ON THIS DEVICE: '+lc+' order'+(lc===1?'':'s')+', most recent '+latestOrderDate(lOrders)+'\n'+
+    'IN THE CLOUD:   '+sc+' order'+(sc===1?'':'s')+', most recent '+latestOrderDate(sOrders)+'\n\n'+
+    'Press OK to keep what is on THIS DEVICE (this replaces the cloud copy).\n'+
+    'Press Cancel to use the version FROM THE CLOUD (this replaces what is on this device).';
+  return confirm(msg)?'local':'server';}
+
+/* ----- pull + reconcile on sign-in / session restore ----- */
+async function reconcile(){
+  const res=await sbReadRows();
+  if(res.auth){clearSession();return {signedIn:false};}
+  if(!res.ok){return {signedIn:true,synced:false};}   /* unreachable: stay usable, not synced */
+  const rows=res.rows;
+  const rMenu=rows.find(x=>x&&x.key==='menu');
+  const rOrders=rows.find(x=>x&&x.key==='orders');
+  const sMenu=rMenu?rMenu.value:null;
+  const sOrders=rOrders?rOrders.value:null;
+  const serverEmpty=!rMenu&&!rOrders;
+  const sHasOrders=Array.isArray(sOrders)&&sOrders.length>0;
+  const lHasOrders=Array.isArray(ORDERS)&&ORDERS.length>0;
+  if(serverEmpty){                                    /* migration: push this device up */
+    const ok=await pushBoth();return {signedIn:true,synced:ok};}
+  if(sHasOrders&&lHasOrders){                         /* both hold saved orders -> always ask */
+    const choice=askConflict(sOrders,ORDERS);
+    clearDirty();
+    if(choice==='local'){const ok=await pushBoth();return {signedIn:true,synced:ok};}
+    applyServer(sMenu,sOrders);return {signedIn:true,synced:true};}
+  /* one side is empty of orders -> server-wins for keys the server has; push up anything it lacks */
+  applyServer(sMenu,sOrders);
+  let ok=true;
+  if(sMenu===null){try{ok=(await sbWrite('menu',MENU))&&ok;}catch(e){ok=false;}}
+  if(sOrders===null&&lHasOrders){try{ok=(await sbWrite('orders',ORDERS))&&ok;}catch(e){ok=false;}}
+  clearDirty();
+  return {signedIn:true,synced:ok};}
+
+/* ----- sign-in form actions ----- */
+async function doSignIn(){
+  const email=($('si_email').value||'').trim(),pass=$('si_pass').value||'';
+  const err=$('si_err'),btn=$('si_btn');
+  err.textContent='';
+  if(!email||!pass){err.textContent='Please enter your email and password.';return;}
+  btn.disabled=true;btn.textContent='Signing in…';
+  try{await sbSignIn(email,pass);}
+  catch(e){btn.disabled=false;btn.textContent='Sign in';err.textContent='That email or password did not work. Please try again.';return;}
+  syncMode='cloud';
+  const so=$('signoutbtn');if(so)so.style.display='';
+  setChipState('saving');
+  const res=await reconcile();
+  if(res.signedIn===false){syncMode='local';const so2=$('signoutbtn');if(so2)so2.style.display='none';
+    btn.disabled=false;btn.textContent='Sign in';err.textContent='Signed in, but the server could not be reached. Please try again.';return;}
+  hideSignin();
+  refreshDatalist();renderMenu();renderHistory();
+  setChipState(res.synced!==false?'synced':'notsynced');
+  btn.disabled=false;btn.textContent='Sign in';}
+function skipSignIn(){syncMode='local';hideSignin();setChipState('local');}
+function signOut(){clearSession();location.reload();}
+
+/* ----- boot: load local first, then pull from the cloud before first render ----- */
+async function boot(){
+  loadMenuLocal();loadOrdersLocal();
+  setChipState('saving');
+  if(loadSession()){
+    syncMode='cloud';
+    const so=$('signoutbtn');if(so)so.style.display='';
+    const res=await reconcile();
+    if(res.signedIn===false){syncMode='local';const so2=$('signoutbtn');if(so2)so2.style.display='none';
+      showSignin();setChipState('local');}
+    else{hideSignin();setChipState(res.synced!==false?'synced':'notsynced');}
+  }else{
+    showSignin();setChipState('local');
+  }
+  refreshDatalist();renderMenu();renderHistory();ensureBlank();$('f_order').value=todayISO();}
+boot();
 </script></body></html>
