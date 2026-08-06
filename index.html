@@ -860,14 +860,6 @@ async function sbWrite(key,value){
     try{r=await post();}catch(e){return false;}}
   return !!r.ok;}
 
-async function pushBoth(){
-  let ok1=false,ok2=false;
-  try{ok1=await sbWrite('menu',MENU);}catch(e){ok1=false;}
-  try{ok2=await sbWrite('orders',ORDERS);}catch(e){ok2=false;}
-  if(ok1&&ok2){_pushFailed=false;clearDirty();setChipState('synced');}
-  else{_pushFailed=true;markDirty();setChipState('notsynced');}
-  return ok1&&ok2;}
-
 /* ----- debounced, fire-and-forget push on local save ----- */
 const _needPush=new Set();
 let _pushTimer=null;
@@ -896,12 +888,12 @@ saveMenuLocal=function(){const r=_origSaveMenuLocal.apply(this,arguments);schedu
 const _origSaveOrdersLocal=saveOrdersLocal;
 saveOrdersLocal=function(){const r=_origSaveOrdersLocal.apply(this,arguments);schedulePush('orders');return r;};
 
-/* ----- apply server rows to local (server-wins); keep the browser copy in step ----- */
-function applyServer(sMenu,sOrders){
-  _suppressPush=true;
-  if(Array.isArray(sMenu)){MENU=sMenu;saveMenuLocal();}
-  if(Array.isArray(sOrders)){ORDERS=sOrders;saveOrdersLocal();}
-  _suppressPush=false;}
+/* ----- apply one server key to local (server-wins); keep the browser copy in step.
+   Called with _suppressPush already true so the local save does not echo a push. ----- */
+function applyOne(key,val){
+  if(!Array.isArray(val))return;
+  if(key==='menu'){MENU=val;saveMenuLocal();}
+  else{ORDERS=val;saveOrdersLocal();}}
 
 function latestOrderDate(arr){if(!arr||!arr.length)return '—';let d='';
   arr.forEach(o=>{const x=(o&&o.orderDate)||'';if(x>d)d=x;});return d||'—';}
@@ -916,6 +908,37 @@ function askConflict(sOrders,lOrders){
     'Press Cancel to use the version FROM THE CLOUD (this replaces what is on this device).';
   return confirm(msg)?'local':'server';}
 
+/* ----- conflict prompt: both sides hold a non-empty menu of a different length ----- */
+function askConflictMenu(sMenu,lMenu){
+  const sc=Array.isArray(sMenu)?sMenu.length:0,lc=Array.isArray(lMenu)?lMenu.length:0;
+  const msg='Your price list / menu is different on this device and in the cloud.\n\n'+
+    'ON THIS DEVICE: '+lc+' item'+(lc===1?'':'s')+'\n'+
+    'IN THE CLOUD:   '+sc+' item'+(sc===1?'':'s')+'\n\n'+
+    'Press OK to keep the menu on THIS DEVICE (this replaces the cloud copy).\n'+
+    'Press Cancel to use the menu FROM THE CLOUD (this replaces what is on this device).';
+  return confirm(msg)?'local':'server';}
+
+/* ----- reconcile ONE key independently. Returns true if the local value should be
+   pushed up to the server. Applies the server value (server-wins) when local adopts it.
+   Rules: an absent server row -> seed from local (push up). An empty server array never
+   overwrites non-empty local -> keep local and push it up. A non-empty server value wins
+   when local is empty; when both are non-empty it asks (orders always; menu only when the
+   item counts differ). ----- */
+function reconcileKey(key,sVal,serverRowPresent){
+  const local=(key==='menu')?MENU:ORDERS;
+  const lNonEmpty=Array.isArray(local)&&local.length>0;
+  const sNonEmpty=Array.isArray(sVal)&&sVal.length>0;
+  if(!serverRowPresent){return true;}                 /* no server row -> seed from local */
+  if(!sNonEmpty){                                      /* server value is an empty array */
+    if(lNonEmpty)return true;                          /* protect non-empty local; push it up */
+    applyOne(key,sVal);return false;}                  /* both empty -> adopt (no-op) */
+  if(!lNonEmpty){applyOne(key,sVal);return false;}     /* server-wins over empty local */
+  const differs=(key==='orders')||(sVal.length!==local.length);  /* menu asks only on differing counts */
+  if(!differs){applyOne(key,sVal);return false;}       /* menu same length -> server-wins */
+  const choice=(key==='orders')?askConflict(sVal,local):askConflictMenu(sVal,local);
+  if(choice==='local')return true;                     /* keep local, push it up */
+  applyOne(key,sVal);return false;}                    /* use the server's version */
+
 /* ----- pull + reconcile on sign-in / session restore ----- */
 async function reconcile(){
   const res=await sbReadRows();
@@ -924,24 +947,20 @@ async function reconcile(){
   const rows=res.rows;
   const rMenu=rows.find(x=>x&&x.key==='menu');
   const rOrders=rows.find(x=>x&&x.key==='orders');
-  const sMenu=rMenu?rMenu.value:null;
-  const sOrders=rOrders?rOrders.value:null;
-  const serverEmpty=!rMenu&&!rOrders;
-  const sHasOrders=Array.isArray(sOrders)&&sOrders.length>0;
-  const lHasOrders=Array.isArray(ORDERS)&&ORDERS.length>0;
-  if(serverEmpty){                                    /* migration: push this device up */
-    const ok=await pushBoth();return {signedIn:true,synced:ok};}
-  if(sHasOrders&&lHasOrders){                         /* both hold saved orders -> always ask */
-    const choice=askConflict(sOrders,ORDERS);
-    clearDirty();
-    if(choice==='local'){const ok=await pushBoth();return {signedIn:true,synced:ok};}
-    applyServer(sMenu,sOrders);return {signedIn:true,synced:true};}
-  /* one side is empty of orders -> server-wins for keys the server has; push up anything it lacks */
-  applyServer(sMenu,sOrders);
+  /* menu and orders are reconciled independently */
+  const pushKeys=[];
+  _suppressPush=true;
+  if(reconcileKey('menu',rMenu?rMenu.value:null,!!rMenu))pushKeys.push('menu');
+  if(reconcileKey('orders',rOrders?rOrders.value:null,!!rOrders))pushKeys.push('orders');
+  _suppressPush=false;
+  if(!pushKeys.length){clearDirty();setChipState('synced');return {signedIn:true,synced:true};}
   let ok=true;
-  if(sMenu===null){try{ok=(await sbWrite('menu',MENU))&&ok;}catch(e){ok=false;}}
-  if(sOrders===null&&lHasOrders){try{ok=(await sbWrite('orders',ORDERS))&&ok;}catch(e){ok=false;}}
-  clearDirty();
+  for(let i=0;i<pushKeys.length;i++){
+    const k=pushKeys[i];const val=(k==='menu')?MENU:ORDERS;
+    let w=false;try{w=await sbWrite(k,val);}catch(e){w=false;}
+    if(!w)ok=false;}
+  if(ok){_pushFailed=false;clearDirty();setChipState('synced');}
+  else{_pushFailed=true;markDirty();setChipState('notsynced');}
   return {signedIn:true,synced:ok};}
 
 /* ----- sign-in form actions ----- */
