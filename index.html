@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Time To Meats — Modern Slate</title><style>:root{--font:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;--bg:#e3e7ea;--sheet:#ffffff;--accent:#455A64;--radius:10px;--top-h:6px;--bar-h:3px;--bar-bg:linear-gradient(90deg,#455A64,#90A4AE);--label:#37474F;--thead-bg:#37474F;--thead-fg:#fff;--thead-border:#263238;--td-border:#e4e9ec;--stripe:#f2f5f7;--auto:#f4f7f8;--input:#dcebf1;--code-fg:#C1272D;--total-bg:#e6ebee;--total-fg:#233;--total-border:#cdd6db;--foot-border:#455A64;--pw-bg:#263238;--pw-fg:#fff;--pw-accent:#4FC3F7;--pw-border:transparent;--tb-bg:#263238;--tb-fg:#fff;--tb-accent:#90A4AE;--btn:#455A64;--btn-ghost:#4a5960;--pill-bg:#455A64;--pill-fg:#fff;--panel-head:#37474F;--brand-red:#C1272D;--brand-red-hover:#a81f24;}
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Time To Meats</title><style>:root{--font:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;--bg:#e3e7ea;--sheet:#ffffff;--accent:#455A64;--radius:10px;--top-h:6px;--bar-h:3px;--bar-bg:linear-gradient(90deg,#455A64,#90A4AE);--label:#37474F;--thead-bg:#37474F;--thead-fg:#fff;--thead-border:#263238;--td-border:#e4e9ec;--stripe:#f2f5f7;--auto:#f4f7f8;--input:#dcebf1;--code-fg:#C1272D;--total-bg:#e6ebee;--total-fg:#233;--total-border:#cdd6db;--foot-border:#455A64;--pw-bg:#263238;--pw-fg:#fff;--pw-accent:#4FC3F7;--pw-border:transparent;--tb-bg:#263238;--tb-fg:#fff;--tb-accent:#90A4AE;--btn:#455A64;--btn-ghost:#4a5960;--pill-bg:#455A64;--pill-fg:#fff;--panel-head:#37474F;--brand-red:#C1272D;--brand-red-hover:#a81f24;}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 body{margin:0;background:var(--bg);color:#1f1f1f;font-family:var(--font);}
 .toolbar{position:sticky;top:0;z-index:30;background:var(--tb-bg);color:var(--tb-fg);
@@ -25,6 +25,7 @@ body{margin:0;background:var(--bg);color:#1f1f1f;font-family:var(--font);}
   border-radius:50%;border:1px solid rgba(255,255,255,.30);background:var(--btn);color:#fff;
   font-weight:700;font-size:13px;letter-spacing:.3px;cursor:pointer;padding:0;}
 .tb-avatar:hover{background:#526771;}
+.tb-avatar .ic{width:20px;height:20px;}
 .tb-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;
   border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);
   color:var(--tb-fg);cursor:pointer;padding:0;}
@@ -1049,8 +1050,19 @@ async function sbRefresh(){
   if(!r.ok)return false;
   let j;try{j=await r.json();}catch(e){return false;}
   if(!j.access_token)return false;
-  saveSession({access_token:j.access_token,refresh_token:j.refresh_token||SB.refresh_token,user_id:(j.user&&j.user.id)||SB.user_id});
+  saveSession({access_token:j.access_token,refresh_token:j.refresh_token||SB.refresh_token,user_id:(j.user&&j.user.id)||SB.user_id,email:(j.user&&j.user.email)||SB.email});
   return true;}
+/* Backfill email for sessions stored before it was persisted, so the avatar
+   fallback is transient for existing users. Display-only; never blocks boot. */
+async function sbEnsureEmail(){
+  if(SB.email||!SB.access_token)return;
+  try{
+    const r=await fetch(SB_URL+'/auth/v1/user',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB.access_token}});
+    if(!r.ok)return;
+    const j=await r.json();
+    if(j&&j.email){saveSession({access_token:SB.access_token,refresh_token:SB.refresh_token,user_id:SB.user_id,email:j.email});updateAvatar();}
+  }catch(e){}
+}
 
 /* ----- read all rows; refresh once on 401 ----- */
 async function sbReadRows(){
@@ -1227,18 +1239,25 @@ function skipSignIn(){syncMode='local';hideSignin();setChipState('local');}
 function signOut(){clearSession();location.reload();}
 
 /* ----- account avatar + toolbar dropdown menus (presentation only) ----- */
+const PERSON_ICON='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>';
 function initialsFromEmail(e){
-  if(!e)return '?';
+  if(!e)return '';
   const local=(''+e).split('@')[0]||'';
   const parts=local.split(/[._+\-]+/).filter(Boolean);
   const ini=parts.length>=2?(parts[0][0]+parts[1][0]):local.slice(0,2);
-  return (ini||'?').toUpperCase();
+  return (ini||'').toUpperCase();
 }
 function updateAvatar(){
   const b=$('avatarbtn');if(!b)return;
-  b.textContent=initialsFromEmail(SB.email);
-  b.setAttribute('aria-label','Account menu'+(SB.email?' for '+SB.email:''));
-  if(SB.email)b.title=SB.email;
+  const ini=initialsFromEmail(SB.email);
+  if(ini){
+    b.textContent=ini;b.classList.remove('tb-avatar-anon');
+    b.setAttribute('aria-label','Account menu for '+SB.email);b.title=SB.email;
+  }else{
+    /* stale/old-shape session with no email: neutral person icon, never garbage */
+    b.innerHTML=PERSON_ICON;b.classList.add('tb-avatar-anon');
+    b.setAttribute('aria-label','Account menu');b.removeAttribute('title');
+  }
 }
 function setAccountVisible(v){
   const ab=$('accountbox');if(ab)ab.style.display=v?'':'none';
@@ -1288,7 +1307,7 @@ async function boot(){
     const res=await reconcile();
     if(res.signedIn===false){syncMode='local';setAccountVisible(false);
       showSignin();setChipState('local');}
-    else{hideSignin();setChipState(res.synced!==false?'synced':'notsynced');}
+    else{hideSignin();setChipState(res.synced!==false?'synced':'notsynced');sbEnsureEmail();}
   }else{
     showSignin();setChipState('local');
   }
