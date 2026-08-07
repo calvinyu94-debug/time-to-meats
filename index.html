@@ -187,7 +187,16 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 .hv-bar .t{font-weight:800;}
 .hv-wrap{max-width:940px;margin:16px auto;padding:0 16px 40px;}
 .hmonth{margin-bottom:20px;}
-.hmonth-h{display:flex;justify-content:space-between;align-items:center;background:#37474F;color:#fff;padding:9px 14px;border-radius:8px 8px 0 0;}
+.hmonth-h{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#37474F;color:#fff;padding:9px 14px;border-radius:8px 8px 0 0;cursor:pointer;}
+.hmonth-body{background:#fff;border:1px solid #dde4e7;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;}
+.hmh-l{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap;}
+.chev{display:inline-block;transition:transform .18s ease;font-size:10px;line-height:1;}
+.hday{border-bottom:1px solid #e3eaed;}
+.hday:last-child{border-bottom:none;}
+.hday-h{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#eef3f5;padding:8px 14px 8px 26px;cursor:pointer;}
+.hday-h b{font-size:13px;color:#37474F;letter-spacing:.3px;}
+.hday-h span{font-size:12px;color:#607078;}
+.hday .hrow{padding-left:40px;}
 .hmbtn{background:#C1272D;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;}
 .hrow.htot{background:#faf3f2;font-weight:800;border-top:2px solid #C1272D;}
 .hrow.htot .tot{color:#C1272D;}
@@ -223,7 +232,7 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 }
 .hmonth-h b{font-size:15px;letter-spacing:.4px;}
 .hmonth-h span{font-size:12px;opacity:.85;}
-.htable{background:#fff;border:1px solid #dde4e7;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;}
+.htable{background:#fff;overflow:hidden;}
 .hrow{display:grid;grid-template-columns:96px 1fr 96px 54px 92px 200px;gap:8px;align-items:center;padding:9px 14px;border-bottom:1px solid #eef2f4;font-size:13px;}
 .hrow.head{background:#f6f9fa;font-weight:700;color:#607078;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;}
 .hrow .r{text-align:right;}
@@ -306,6 +315,8 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
   .hact button{flex:1;}
   .hact button.hbtn-del{margin-left:0;min-height:44px;}
   .hmonth-h{flex-direction:column;align-items:flex-start;gap:8px;}
+  .hday-h{padding-left:14px;}
+  .hday .hrow{padding-left:14px;}
   .hv-wrap{padding:0 10px 40px;}
   .hdetail{overflow-x:auto;}
   .hdetail table{font-size:12px;}
@@ -685,6 +696,8 @@ function printMenu(){ window.print(); }
 /* ---------- ORDER HISTORY ---------- */
 const LSKEY_O='ttm_orders_v1';
 let ORDERS=[];
+let histOpen={months:new Set(),days:new Set()};  /* accordion state; keys YYYY-MM and YYYY-MM-DD */
+let _histSeeded=false;         /* seed current month open once, not on every render */
 let openOrderId=null;          /* id of the invoice open in the form; single owner */
 let _autosaveTimer=null;       /* 1200ms local autosave debounce */
 let _cloudIdleTimer=null;      /* 30s idle -> cloud push */
@@ -778,6 +791,10 @@ function monthKey(iso){const d=iso?new Date(iso+'T00:00:00'):new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function monthLabel(key){const p=key.split('-');
   return new Date(+p[0],+p[1]-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});}
+/* Local-parse (append T00:00:00) so a bare YYYY-MM-DD labels as its own local day,
+   never the UTC-shifted day-before. Same pattern as monthKey; single source of date labels. */
+function dayLabel(iso){const d=new Date(iso+'T00:00:00');
+  return d.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric'});}
 function openHistory(){renderHistory();$('histview').classList.add('on');document.body.classList.add('hist-open');window.scrollTo(0,0);}
 function closeHistory(){$('histview').classList.remove('on');document.body.classList.remove('hist-open');}
 function deleteOrder(id){
@@ -791,6 +808,8 @@ function deleteOrder(id){
   saveOrdersLocal();
   renderHistory();}
 function toggleDetail(id){const el=document.getElementById('det-'+id);if(el)el.style.display=(el.style.display==='none'?'block':'none');}
+function toggleMonth(k){const s=histOpen.months;s.has(k)?s.delete(k):s.add(k);renderHistory();}
+function toggleDay(k){const s=histOpen.days;s.has(k)?s.delete(k):s.add(k);renderHistory();}
 function loadOrder(id){const o=ORDERS.find(x=>x.id===id);if(!o)return;
   newOrder();
   $('f_to').value=o.to||'';$('f_addr').value=o.address||'';$('f_order').value=o.orderDate||todayISO();
@@ -806,23 +825,45 @@ function renderHistory(){
   const wrap=$('histbody');
   $('histcount').textContent=ORDERS.length+(ORDERS.length===1?' order':' orders')+' saved';
   if(!ORDERS.length){wrap.innerHTML='<div class="hempty">No saved orders yet. Fill out an order, then click <b>✔ Save Order</b> in the top bar.</div>';return;}
-  const groups={};ORDERS.forEach(o=>{const k=monthKey(o.orderDate);(groups[k]=groups[k]||[]).push(o);});
-  const keys=Object.keys(groups).sort().reverse();
+  /* Seed the current month open on the first render only, so a user-collapsed
+     current month is not forced back open by a later rebuild (e.g. after delete). */
+  if(!_histSeeded){histOpen.months.add(monthKey(todayISO()));_histSeeded=true;}
+  /* Nested grouping: groups[YYYY-MM][YYYY-MM-DD] = [orders].
+     Month key via monthKey (local-parse). Day key is the raw orderDate string —
+     no Date object, so no timezone shift can move an order to the wrong day. */
+  const groups={};
+  ORDERS.forEach(o=>{const mk=monthKey(o.orderDate),dk=o.orderDate||'';
+    (groups[mk]||(groups[mk]={}));(groups[mk][dk]||(groups[mk][dk]=[])).push(o);});
+  const months=Object.keys(groups).sort().reverse();  /* YYYY-MM sorts lexically */
   let html='';
-  keys.forEach(k=>{
-    const list=groups[k].slice().sort((a,b)=>b.id-a.id);
-    const rev=list.reduce((s,o)=>s+(o.costTotal||0),0);
-    const items=list.reduce((s,o)=>s+(o.lines?o.lines.length:0),0);
-    html+=`<div class="hmonth"><div class="hmonth-h"><div><b>${monthLabel(k)}</b> <span>${list.length} order${list.length>1?'s':''} · ${items} items · ${money(rev)}</span></div><button class="hmbtn" onclick="openSummary('${k}')">📄 Month Summary PDF</button></div><div class="htable">`;
-    html+='<div class="hrow head"><span>Date</span><span>Customer</span><span>Delivery</span><span class="r">Items</span><span class="r">Total</span><span></span></div>';
-    list.forEach(o=>{
-      const rows=o.lines.map(l=>`<tr><td>${esc(l.code)}</td><td>${esc(l.name)}</td><td>${esc(l.cust||'')}</td><td class="r">${l.qty}</td><td class="r">${l.price!==''?money(l.price):''}</td><td class="r">${l.cost!==''?money(l.cost):''}</td></tr>`).join('');
-      html+=`<div class="hrow"><span>${esc(o.orderDate||'')}</span><span class="cust">${esc(o.to||'—')}</span><span>${esc(o.delivery||'')}</span><span class="r">${o.lines.length}</span><span class="tot">${money(o.costTotal||0)}</span>`+
-        `<span class="hact"><button class="hbtn-view" onclick="toggleDetail(${o.id})">View</button><button class="hbtn-load" onclick="loadOrder(${o.id})">Load</button><button class="hbtn-del" onclick="deleteOrder(${o.id})">Delete</button></span></div>`+
-        `<div class="hdetail" id="det-${o.id}" style="display:none"><table><thead><tr><th>Code</th><th>Item</th><th>Ordered</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Cost</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    });
-    html+=`<div class="hrow htot"><span></span><span>Month total</span><span></span><span class="r">${items}</span><span class="tot">${money(rev)}</span><span></span></div>`;
-    html+='</div></div>';
+  months.forEach(mk=>{
+    const days=Object.keys(groups[mk]).sort().reverse();  /* YYYY-MM-DD sorts lexically */
+    let mOrders=0,mItems=0,mRev=0;
+    days.forEach(dk=>groups[mk][dk].forEach(o=>{mOrders++;mItems+=(o.lines?o.lines.length:0);mRev+=(o.costTotal||0);}));
+    const mOpen=histOpen.months.has(mk);
+    html+=`<div class="hmonth"><div class="hmonth-h" onclick="toggleMonth('${mk}')"><div class="hmh-l"><span class="chev" style="transform:rotate(${mOpen?'0':'-90'}deg)">▾</span><b>${monthLabel(mk)}</b> <span>${mOrders} order${mOrders>1?'s':''} · ${mItems} items · ${money(mRev)}</span></div><button class="hmbtn" onclick="event.stopPropagation();openSummary('${mk}')">📄 Month Summary PDF</button></div>`;
+    if(mOpen){
+      html+='<div class="hmonth-body">';
+      days.forEach(dk=>{
+        const dlist=groups[mk][dk].slice().sort((a,b)=>b.id-a.id);  /* newest-first within a day */
+        const dRev=dlist.reduce((s,o)=>s+(o.costTotal||0),0);
+        const dOpen=histOpen.days.has(dk);
+        html+=`<div class="hday"><div class="hday-h" onclick="toggleDay('${dk}')"><div class="hmh-l"><span class="chev" style="transform:rotate(${dOpen?'0':'-90'}deg)">▾</span><b>${dayLabel(dk)}</b> <span>${dlist.length} order${dlist.length>1?'s':''} · ${money(dRev)}</span></div></div>`;
+        if(dOpen){
+          html+='<div class="htable"><div class="hrow head"><span>Date</span><span>Customer</span><span>Delivery</span><span class="r">Items</span><span class="r">Total</span><span></span></div>';
+          dlist.forEach(o=>{
+            const rows=o.lines.map(l=>`<tr><td>${esc(l.code)}</td><td>${esc(l.name)}</td><td>${esc(l.cust||'')}</td><td class="r">${l.qty}</td><td class="r">${l.price!==''?money(l.price):''}</td><td class="r">${l.cost!==''?money(l.cost):''}</td></tr>`).join('');
+            html+=`<div class="hrow"><span>${esc(o.orderDate||'')}</span><span class="cust">${esc(o.to||'—')}</span><span>${esc(o.delivery||'')}</span><span class="r">${o.lines.length}</span><span class="tot">${money(o.costTotal||0)}</span>`+
+              `<span class="hact"><button class="hbtn-view" onclick="toggleDetail(${o.id})">View</button><button class="hbtn-load" onclick="loadOrder(${o.id})">Load</button><button class="hbtn-del" onclick="deleteOrder(${o.id})">Delete</button></span></div>`+
+              `<div class="hdetail" id="det-${o.id}" style="display:none"><table><thead><tr><th>Code</th><th>Item</th><th>Ordered</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Cost</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+          });
+          html+='</div>';
+        }
+        html+='</div>';
+      });
+      html+='</div>';
+    }
+    html+='</div>';
   });
   wrap.innerHTML=html;
 }
