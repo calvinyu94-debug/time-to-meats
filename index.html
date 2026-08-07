@@ -139,41 +139,43 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 .mv-bar input{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid #90A4AE;width:160px;text-transform:uppercase;}
 .mv-sheet{max-width:1040px;margin:16px auto;padding:22px 28px;color:#1f1f1f;
   font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;}
-.mv-head{display:flex;align-items:center;border-bottom:3px solid #C1272D;padding-bottom:14px;gap:22px;}
-.mv-head .logo{width:235px;height:auto;flex:none;}
+.mv-head{display:flex;align-items:center;border-bottom:3px solid #C1272D;padding-bottom:8px;gap:16px;}
+.mv-head .logo{width:150px;height:auto;flex:none;}
 .mv-hsep{width:1px;align-self:stretch;background:#e0d5d0;}
-.mv-contact{display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:#444;text-align:left;line-height:1.2;}
-.mv-contact .cr{display:flex;align-items:center;gap:10px;white-space:nowrap;}
+.mv-hmid{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;}
+.mv-contact{display:flex;flex-wrap:wrap;gap:3px 14px;font-size:10px;color:#444;text-align:left;line-height:1.2;}
+.mv-contact .cr{display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .mv-contact .cic{display:flex;flex:none;}
-.mv-contact .cic svg{width:17px;height:17px;}
-.mv-mwrap{display:flex;align-items:center;gap:10px;}
+.mv-contact .cic svg{width:12px;height:12px;}
+.mv-terms{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:9px;color:#222;line-height:1.2;}
+.mv-terms .tm{display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.mv-terms .tm b{color:#C1272D;font-weight:800;text-transform:uppercase;letter-spacing:.2px;}
+.mv-terms .tic{display:flex;flex:none;}
+.mv-terms .tic svg{width:12px;height:12px;}
+.mv-mwrap{display:flex;align-items:center;gap:8px;margin-left:auto;align-self:flex-start;}
 .mv-mwrap .cal{display:flex;flex:none;}
-.mv-mwrap .cal svg{width:23px;height:23px;}
-.mv-month{color:#C1272D;font-weight:900;font-size:22px;letter-spacing:1px;white-space:nowrap;}
-.mv-cols{column-count:2;column-gap:26px;margin-top:16px;}
-.cat{break-inside:avoid;margin:0 0 14px;}
-.cat h3{background:#C1272D;color:#fff;margin:0;padding:7px 12px;border-radius:5px 5px 0 0;font-size:14px;letter-spacing:.4px;text-transform:uppercase;}
-.cat table{border-collapse:collapse;width:100%;}
-.cat th{background:#fff;border:none;border-bottom:1px solid #d9cfca;font-size:9.5px;letter-spacing:.4px;color:#444;text-align:left;padding:5px 8px;text-transform:uppercase;}
-.cat th.r{text-align:right;}
-.cat td{font-size:11px;padding:3px 8px;border-bottom:1px solid #f2eae6;vertical-align:top;}
-.cat td.c{font-weight:800;color:#333;white-space:nowrap;}
-.cat td.mo{text-align:right;color:#666;white-space:nowrap;}
-.cat td.pr{text-align:right;color:#C1272D;font-weight:800;white-space:nowrap;}
-.mv-foot{margin-top:18px;border-top:3px solid #C1272D;padding-top:14px;display:flex;align-items:center;gap:12px;}
-.mv-foot .ff{display:flex;align-items:center;gap:9px;flex:1;}
-.mv-foot .ff+.ff{border-left:1px solid #ecdfda;padding-left:12px;}
-.mv-foot .ff.contact{flex:1.25;}
-.mv-foot .fic{width:34px;height:34px;border-radius:50%;background:#C1272D;flex:none;display:flex;align-items:center;justify-content:center;}
-.mv-foot .fic svg{width:18px;height:18px;}
-.mv-foot .ft{font-size:9.5px;line-height:1.3;color:#222;text-transform:uppercase;letter-spacing:.2px;}
-.mv-foot .ft b{display:block;font-weight:800;}
-.mv-foot .ft span{display:block;}
-.mv-foot .ft .big{color:#C1272D;font-weight:900;font-size:15px;letter-spacing:.3px;}
-.mv-foot .ft .pw{color:#C1272D;font-weight:900;font-size:15px;text-transform:none;}
-.mv-foot .ff.contact .ft{text-transform:none;font-size:10px;}
-.mv-foot .ff.contact .ft b{text-transform:uppercase;font-size:11px;letter-spacing:.3px;}
-.mv-foot .ft .mini{width:12px;height:12px;vertical-align:-2px;margin-right:4px;}
+.mv-mwrap .cal svg{width:18px;height:18px;}
+.mv-month{color:#C1272D;font-weight:900;font-size:18px;letter-spacing:1px;white-space:nowrap;}
+.mv-cols{column-count:3;column-gap:12px;margin-top:6px;}
+/* Flowing rows: individual item rows flow across columns (was atomic tables). */
+.cat{break-inside:auto;margin:0 0 5px;}
+.cat h3{background:#C1272D;color:#fff;margin:0 0 1px;padding:2px 8px;border-radius:4px 4px 0 0;font-size:10px;letter-spacing:.3px;text-transform:uppercase;break-after:avoid;}
+.cat .row{display:flex;gap:4px;align-items:baseline;break-inside:avoid;font-size:8px;line-height:1.12;padding:1px 5px;border-bottom:1px solid #f2eae6;}
+.cat .row.ev{background:#faf4f2;}
+.cat .row .c{flex:none;width:30px;color:#C1272D;font-weight:500;white-space:nowrap;}
+.cat .row .nm{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:#1f1f1f;}
+.cat .row .mo{flex:none;text-align:right;color:#666;white-space:nowrap;}
+.cat .row .pr{flex:none;width:30px;text-align:right;color:#C1272D;font-weight:800;white-space:nowrap;}
+/* keep heading grouped with its first two rows (no orphan heading) */
+.cat h3 + .row,.cat h3 + .row + .row{break-before:avoid;}
+.mv-foot{margin-top:8px;border-top:3px solid #C1272D;padding-top:6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 14px;font-size:10px;color:#222;line-height:1.3;}
+.mv-foot .fitem{display:flex;align-items:center;gap:6px;}
+.mv-foot .fic{width:22px;height:22px;border-radius:50%;background:#C1272D;flex:none;display:flex;align-items:center;justify-content:center;}
+.mv-foot .fic svg{width:12px;height:12px;}
+.mv-foot .pw{color:#C1272D;font-weight:900;font-size:13px;}
+.mv-foot b{font-weight:800;text-transform:uppercase;letter-spacing:.2px;}
+.mv-foot .fsep{color:#e0b9ba;}
+.mv-foot .mini{width:11px;height:11px;vertical-align:-2px;margin-right:3px;}
 @media print{
   body.menu-open .toolbar,body.menu-open .sheet,body.menu-open .panel{display:none!important;}
   body.menu-open #menuview{position:static;display:block;overflow:visible;}
@@ -321,14 +323,12 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
   .hdetail{overflow-x:auto;}
   .hdetail table{font-size:12px;}
 
-  /* 7. CUSTOMER MENU VIEW — PRIORITY BUG: columns overlap on mobile */
+  /* 7. CUSTOMER MENU VIEW — single column, larger rows for phone reading */
   .mv-cols{column-count:1;column-gap:0;}
-  .cat table{table-layout:auto;max-width:100%;}
-  .cat td{overflow-wrap:anywhere;}
-  .cat td.mo{white-space:normal;}       /* "1 bag (2 lb)" may wrap */
-  .cat td.c,.cat td.pr{white-space:nowrap;}  /* codes and prices stay intact */
-  .cat td{font-size:12px;}
-  .cat th{font-size:10px;}
+  .cat .row{font-size:11px;}
+  .cat .row .c{width:38px;}
+  .cat .row .mo{white-space:normal;}       /* long min may wrap on phone */
+  .cat .row .c,.cat .row .pr{white-space:nowrap;}  /* codes and prices stay intact */
   #menuview{overflow-x:hidden;}
   .mv-sheet{max-width:100%;padding:14px 12px;}
   .mv-head{flex-direction:column;align-items:flex-start;gap:12px;}
@@ -655,37 +655,60 @@ function toggleFull(){const p=$('panel');const on=p.classList.toggle('full');
   if(on)window.scrollTo(0,0);}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function monthYear(){return new Date().toLocaleString('en-US',{month:'long',year:'numeric'}).toUpperCase();}
+// Display-only MIN normalization. NEVER written back to MENU/localStorage/Supabase.
+// Allowlist transforms only; anything unmatched passes through verbatim; no number is ever dropped.
+// (The brief's optional Rule 2 — collapsing a parenthetical unit that matches the outer unit —
+//  was measured against the full catalogue and saved 0 wrapped rows / 0 pages and never touched
+//  the widest MIN string, so it was dropped as not earning its risk.)
+function normMin(raw){
+  if(raw==null)return '';
+  let s=String(raw);
+  // Rule 1: drop the standalone word "Min" (case-insensitive, word-boundary only)
+  s=s.replace(/\bmin\b/gi,'');
+  // Rule 3: collapse whitespace around the "/" separator ("2.5-3 lb / pc" -> "2.5-3 lb/pc")
+  s=s.replace(/\s*\/\s*/g,'/');
+  // Rule 4: drop "(per pc)" when the string already opens with "1<unit>" (a restatement)
+  if(/^\s*1\s*[a-z]/i.test(s))s=s.replace(/\(\s*per\s+pc\s*\)/gi,'');
+  // tidy the whitespace the drops leave behind (never touches a number)
+  s=s.replace(/\(\s+/g,'(').replace(/\s+\)/g,')').replace(/\s{2,}/g,' ').trim();
+  return s;
+}
 function renderMenuView(){
   const logo=document.querySelector('.sheet .logo'); const src=logo?logo.src:'';
   const cats={},order=[];
-  MENU.forEach(m=>{const c=m.cat||'Other';if(!cats[c]){cats[c]=[];order.push(c);}cats[c].push(m);});
+  // Fold empty/"Other" categories to their code-prefix category at render time (display only).
+  // inferCat() checks SPL before S, and returns 'Other' for unrecognised codes (section still renders).
+  MENU.forEach(m=>{let c=m.cat;if(!c||c==='Other')c=inferCat(m.code);if(!cats[c]){cats[c]=[];order.push(c);}cats[c].push(m);});
   const icon={Beef:'🐄',Pork:'🐖','Chicken / Duck / Squab':'🐔',Seafood:'🦐',Lamb:'🐑','Special Items':'⭐','Miscellaneous':'🥟'};
   let cols='';
   order.forEach(c=>{
-    const rows=cats[c].map(m=>`<tr><td class="c">${esc(m.code)}</td><td>${esc(m.name)}</td><td class="mo">${esc(m.min||'')}</td><td class="pr">${money(m.price)}</td></tr>`).join('');
-    cols+=`<div class="cat"><h3>${icon[c]||'🍖'} ${esc(c)}</h3><table><thead><tr><th>Code</th><th>Product</th><th class="r">Min</th><th class="r">Price</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    const rows=cats[c].map((m,i)=>`<div class="row ${i%2?'od':'ev'}"><span class="c">${esc(m.code)}</span><span class="nm">${esc(m.name)}</span><span class="mo">${esc(normMin(m.min))}</span><span class="pr">${money(m.price)}</span></div>`).join('');
+    cols+=`<div class="cat"><h3>${icon[c]||'🍖'} ${esc(c)}</h3>${rows}</div>`;
   });
   const month=($('mv-month').value||monthYear());
   $('menusheet').innerHTML=
     `<div class="mv-head"><img class="logo" src="${src}" alt="Time To Meats">`+
-    `<div class="mv-hsep"></div>`+
+    `<div class="mv-hmid">`+
     `<div class="mv-contact">`+
     `<span class="cr"><span class="cic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>timetomeats@gmail.com</span>`+
     `<span class="cr"><span class="cic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l1 5-2 1a11 11 0 006 6l1-2 5 1v4a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z"/></svg></span>(604) 618-8326</span>`+
     `<span class="cr"><span class="cic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1.1" fill="#C1272D" stroke="none"/></svg></span>@timetomeats</span>`+
     `</div>`+
-    `<div class="mv-hsep" style="margin-left:auto"></div>`+
+    `<div class="mv-terms">`+
+    `<span class="tm"><span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Order <b>36 hrs</b> in advance</span>`+
+    `<span class="tm"><span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg></span>Order via Email / Text / WhatsApp</span>`+
+    `<span class="tm"><span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10.5h18"/></svg></span>Pay by E-transfer / Cash / Cheque</span>`+
+    `</div>`+
+    `</div>`+
     `<div class="mv-mwrap"><span class="cal"><svg viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span class="mv-month" id="mv-monthlabel">${esc(month)}</span></div>`+
     `</div>`+
     `<div class="mv-cols">${cols}</div>`+
     `<div class="mv-foot">`+
-    `<div class="ff"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="ft"><b>Please order</b><span class="big">36 HOURS</span><b>in advance</b></div></div>`+
-    `<div class="ff"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg></span><div class="ft"><b>Order via</b><span>Email / Text / WhatsApp</span></div></div>`+
-    `<div class="ff"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10.5h18"/></svg></span><div class="ft"><b>Payment</b><span>E-transfer / Cash / Cheque</span></div></div>`+
-    `<div class="ff"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span><div class="ft"><b>E-transfer password</b><span class="pw">Alex88</span></div></div>`+
-    `<div class="ff contact"><div class="ft"><b>Alex Phung</b>`+
+    `<span class="fitem"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span><b>E-transfer password</b>&nbsp;<span class="pw">Alex88</span></span>`+
+    `<span class="fsep">|</span>`+
+    `<span class="fitem"><b>Alex Phung</b>`+
     `<span><svg class="mini" viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l1 5-2 1a11 11 0 006 6l1-2 5 1v4a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z"/></svg>(604) 618-8326</span>`+
-    `<span><svg class="mini" viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></svg>timetomeats@gmail.com</span></div></div>`+
+    `<span><svg class="mini" viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></svg>timetomeats@gmail.com</span></span>`+
     `</div>`;
 }
 function openMenu(){ if(!$('mv-month').value)$('mv-month').value=monthYear();
