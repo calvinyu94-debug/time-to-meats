@@ -12,6 +12,9 @@ button{font:inherit;border:none;background:var(--btn);color:#fff;padding:9px 15p
 button.ghost{background:var(--btn-ghost);color:#fff;}
 button:active{transform:translateY(1px);}
 .hint{color:#b9b1ab;font-size:12px;margin-left:auto;}
+.savestate{font-size:12px;font-weight:700;white-space:nowrap;opacity:0;transition:opacity .25s;}
+.savestate.saving{color:#cfd8dc;}
+.savestate.saved{color:#8fd19e;}
 
 .sheet{max-width:850px;margin:22px auto;background:var(--sheet);
   box-shadow:0 8px 30px rgba(0,0,0,.16);border-top:var(--top-h) solid var(--accent);border-radius:var(--radius);}
@@ -373,6 +376,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   <span class="badge">Modern Slate</span>
   <button onclick="window.print()">🖨 Save / Print PDF</button>
   <button class="ghost" onclick="saveOrder()">✔ Save Order</button>
+  <span class="savestate" id="ordsave" aria-live="polite"></span>
   <button class="ghost" onclick="newOrder()">＋ New Order</button>
   <button class="ghost" onclick="openHistory()">🕘 History</button>
   <button class="ghost" onclick="togglePanel()">✎ Prices &amp; Menu</button>
@@ -561,7 +565,8 @@ function delivChange(){const o=$('f_deliv_sel').value==='Other';
   $('delivwrap').classList.toggle('other',o); if(o)$('f_deliv_other').focus();}
 function newOrder(){['f_to','f_addr','f_deliv_other'].forEach(i=>$(i).value='');
   $('f_deliv_sel').value='Pick up';$('delivwrap').classList.remove('other');
-  $('rows').innerHTML='';ensureBlank();totals();$('f_order').value=todayISO();}
+  $('rows').innerHTML='';ensureBlank();totals();$('f_order').value=todayISO();
+  openOrderId=null;clearTimeout(_autosaveTimer);_autosaveTimer=null;setSaveState('idle');}
 function refreshDatalist(){document.getElementById('codelist')?.remove();
   const dl=document.createElement('datalist');dl.id='codelist';
   MENU.forEach(m=>{const o=document.createElement('option');o.value=m.code;o.label=m.name;dl.appendChild(o);});
@@ -680,6 +685,11 @@ function printMenu(){ window.print(); }
 /* ---------- ORDER HISTORY ---------- */
 const LSKEY_O='ttm_orders_v1';
 let ORDERS=[];
+let openOrderId=null;          /* id of the invoice open in the form; single owner */
+let _autosaveTimer=null;       /* 1200ms local autosave debounce */
+let _cloudIdleTimer=null;      /* 30s idle -> cloud push */
+let _holdOrdersPush=false;     /* true while an autosave writes locally without pushing */
+let _ordersServerTS=null;      /* last-known server updated_at for the orders row (clobber-guard baseline) */
 function loadOrdersLocal(){try{const s=localStorage.getItem(LSKEY_O);if(s){const a=JSON.parse(s);if(Array.isArray(a))ORDERS=a;}}catch(e){}}
 function saveOrdersLocal(){try{localStorage.setItem(LSKEY_O,JSON.stringify(ORDERS));}catch(e){}}
 function currentDelivery(){const s=$('f_deliv_sel').value;return s==='Other'?($('f_deliv_other').value.trim()||'Other'):s;}
@@ -690,19 +700,80 @@ function collectLines(){const out=[];[...$('rows').children].forEach(tr=>{
   out.push({code:code.toUpperCase(),name:m?m.name:'',cust:cust,
     qty:isNaN(qty)?'':qty,price:m?m.price:'',cost:(m&&!isNaN(qty))?m.price*qty:''});});
   return out;}
+/* Build an invoice record from the current form, tagged with the given id. */
+function buildOrderRecord(id){
+  const lines=collectLines();
+  let q=0,c=0;lines.forEach(l=>{if(l.qty!=='')q+=l.qty;if(l.cost!=='')c+=l.cost;});
+  return {id:id,savedAt:new Date().toISOString(),
+    orderDate:$('f_order').value||todayISO(),
+    to:$('f_to').value.trim(),address:$('f_addr').value.trim(),
+    delivery:currentDelivery(),lines:lines,
+    qtyTotal:Math.round(q*100)/100,costTotal:c};}
+/* Upsert by id: replace the record in place if present, else append once. */
+function upsertOrder(rec){
+  const idx=ORDERS.findIndex(o=>o.id===rec.id);
+  if(idx>=0)ORDERS[idx]=rec;else ORDERS.push(rec);}
+/* Autosave is allowed only once the order is real: a named customer and at
+   least one line with a code and a positive quantity. Blocks ghost orders. */
+function orderReady(){
+  if(!$('f_to').value.trim())return false;
+  return collectLines().some(l=>l.code&&l.qty!==''&&Number(l.qty)>0);}
+/* Save indicator near the toolbar Save button. Mirrors flashSaved()'s fade. */
+function setSaveState(s){const el=$('ordsave');if(!el)return;
+  clearTimeout(setSaveState._t);
+  if(s==='saving'){el.textContent='Saving…';el.className='savestate saving';el.style.opacity='1';}
+  else if(s==='saved'){el.textContent='Saved ✓';el.className='savestate saved';el.style.opacity='1';
+    setSaveState._t=setTimeout(()=>{el.style.opacity='0';},1400);}
+  else{el.textContent='';el.className='savestate';el.style.opacity='0';}}
+/* Explicit Save: flush-and-confirm. Cancels any pending autosave, writes to the
+   record the form was opened with (never a second insert), and pushes now. */
 function saveOrder(){
   const lines=collectLines();
   if(!lines.length){alert('Add at least one item (pick a code) before saving.');return;}
-  let q=0,c=0;lines.forEach(l=>{if(l.qty!=='')q+=l.qty;if(l.cost!=='')c+=l.cost;});
-  const to=$('f_to').value.trim(),orderDate=$('f_order').value||todayISO(),delivery=currentDelivery();
-  const sig=JSON.stringify({to:to,d:orderDate,dv:delivery,l:lines});
-  const dup=ORDERS.find(o=>JSON.stringify({to:o.to,d:o.orderDate,dv:o.delivery,l:o.lines})===sig);
-  if(dup&&!confirm('This looks identical to an order already saved'+(dup.savedAt?' ('+new Date(dup.savedAt).toLocaleString()+')':'')+'.\n\nSave it again anyway?'))return;
-  const o={id:Date.now(),savedAt:new Date().toISOString(),orderDate:orderDate,
-    to:to,address:$('f_addr').value.trim(),delivery:delivery,
-    lines:lines,qtyTotal:Math.round(q*100)/100,costTotal:c};
-  ORDERS.push(o);saveOrdersLocal();
-  alert('Order saved to history'+(o.to?' for '+o.to:'')+'.');}
+  clearTimeout(_autosaveTimer);_autosaveTimer=null;
+  /* content-signature guard only catches accidental re-entry of a brand-new
+     order; on an already-open record it would misfire on every legit edit. */
+  if(openOrderId===null){
+    const sig=JSON.stringify({to:$('f_to').value.trim(),d:$('f_order').value||todayISO(),dv:currentDelivery(),l:lines});
+    const dup=ORDERS.find(o=>JSON.stringify({to:o.to,d:o.orderDate,dv:o.delivery,l:o.lines})===sig);
+    if(dup&&!confirm('This looks identical to an order already saved'+(dup.savedAt?' ('+new Date(dup.savedAt).toLocaleString()+')':'')+'.\n\nSave it again anyway?'))return;
+    openOrderId=Date.now();
+  }
+  upsertOrder(buildOrderRecord(openOrderId));
+  clearTimeout(_cloudIdleTimer);_cloudIdleTimer=null;
+  saveOrdersLocal();          /* local write + (un-held) debounced cloud push */
+  setSaveState('saved');}
+/* Debounced local autosave. The local write is immediate; the cloud push is
+   held back (blur / explicit Save / 30s idle drive it) so continuous typing
+   never hammers the shared orders blob. */
+function armAutosave(){
+  clearTimeout(_autosaveTimer);
+  if(orderReady())setSaveState('saving');
+  _autosaveTimer=setTimeout(function(){_autosaveTimer=null;doAutosave();},1200);}
+function doAutosave(){
+  if(!orderReady())return;                          /* no ghost orders until real */
+  if(openOrderId===null)openOrderId=Date.now();     /* lazy id assignment */
+  upsertOrder(buildOrderRecord(openOrderId));
+  _holdOrdersPush=true;try{saveOrdersLocal();}finally{_holdOrdersPush=false;}
+  setSaveState('saved');
+  armCloudIdle();}
+function armCloudIdle(){
+  clearTimeout(_cloudIdleTimer);
+  _cloudIdleTimer=setTimeout(function(){_cloudIdleTimer=null;if(syncMode==='cloud')schedulePush('orders');},30000);}
+/* Focus leaving the order form: flush any pending autosave, then push now. */
+function flushOrdersToCloud(){
+  if(_autosaveTimer){clearTimeout(_autosaveTimer);_autosaveTimer=null;doAutosave();}
+  clearTimeout(_cloudIdleTimer);_cloudIdleTimer=null;
+  if(openOrderId!=null&&syncMode==='cloud')schedulePush('orders');}
+/* Wire change + blur listeners once. Rows are delegated so new rows are covered. */
+function wireAutosave(){
+  const rows=$('rows');if(rows)rows.addEventListener('input',armAutosave);
+  const f=document.querySelector('.fields');
+  if(f){f.addEventListener('input',armAutosave);f.addEventListener('change',armAutosave);}
+  const sheet=document.querySelector('.sheet');
+  if(sheet)sheet.addEventListener('focusout',function(){
+    setTimeout(function(){const a=document.activeElement;
+      if(!a||!a.closest||!a.closest('.sheet'))flushOrdersToCloud();},0);});}
 function monthKey(iso){const d=iso?new Date(iso+'T00:00:00'):new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function monthLabel(key){const p=key.split('-');
@@ -716,6 +787,7 @@ function deleteOrder(id){
               '\nTotal: '+money(o.costTotal||0)+
               '\n\nThis cannot be undone.')) return;
   ORDERS=ORDERS.filter(x=>x.id!==id);
+  if(openOrderId===id)openOrderId=null;
   saveOrdersLocal();
   renderHistory();}
 function toggleDetail(id){const el=document.getElementById('det-'+id);if(el)el.style.display=(el.style.display==='none'?'block':'none');}
@@ -729,7 +801,7 @@ function loadOrder(id){const o=ORDERS.find(x=>x.id===id);if(!o)return;
     tr.querySelector('.code').value=l.code;fillRow(tr);
     var ci=tr.querySelector('.custord');if(ci&&l.cust!==undefined)ci.value=l.cust;
     if(l.qty!==''){tr.querySelector('.qty').value=l.qty;calcRow(tr);}tr.classList.remove('blank');});
-  ensureBlank();totals();closeHistory();window.scrollTo(0,0);}
+  ensureBlank();totals();openOrderId=o.id;setSaveState('idle');closeHistory();window.scrollTo(0,0);}
 function renderHistory(){
   const wrap=$('histbody');
   $('histcount').textContent=ORDERS.length+(ORDERS.length===1?' order':' orders')+' saved';
@@ -850,7 +922,8 @@ async function sbReadRows(){
 
 /* ----- write one key; refresh once on 401, then give up quietly ----- */
 async function sbWrite(key,value){
-  const body=JSON.stringify([{user_id:SB.user_id,key:key,value:value,updated_at:new Date().toISOString()}]);
+  const stamp=new Date().toISOString();
+  const body=JSON.stringify([{user_id:SB.user_id,key:key,value:value,updated_at:stamp}]);
   const post=()=>fetch(SB_URL+'/rest/v1/app_state',{method:'POST',
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB.access_token,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
     body:body});
@@ -858,7 +931,9 @@ async function sbWrite(key,value){
   if(r.status===401){
     if(!(await sbRefresh()))return false;
     try{r=await post();}catch(e){return false;}}
-  return !!r.ok;}
+  const ok=!!r.ok;
+  if(ok&&key==='orders')_ordersServerTS=stamp;   /* our write becomes the new server baseline */
+  return ok;}
 
 /* ----- debounced, fire-and-forget push on local save ----- */
 const _needPush=new Set();
@@ -870,12 +945,32 @@ function schedulePush(key){
   setChipState('saving');
   clearTimeout(_pushTimer);
   _pushTimer=setTimeout(function(){flushPushes();},800);}
+/* Would writing the orders blob overwrite a copy another device wrote after our
+   last sync? Compares the server row's updated_at against our baseline. Any read
+   failure returns false — never block a push on a transient read hiccup; sbWrite
+   has its own failure handling. */
+async function sbOrdersServerNewer(){
+  const get=()=>fetch(SB_URL+'/rest/v1/app_state?select=updated_at&key=eq.orders',
+    {headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB.access_token}});
+  let r;try{r=await get();}catch(e){return false;}
+  if(r.status===401){if(!(await sbRefresh()))return false;
+    try{r=await get();}catch(e){return false;}}
+  if(!r.ok)return false;
+  let rows;try{rows=await r.json();}catch(e){return false;}
+  const row=Array.isArray(rows)?rows[0]:null;
+  const sv=row&&row.updated_at?row.updated_at:null;
+  if(!sv||!_ordersServerTS)return false;   /* no server row or no baseline -> allow */
+  return Date.parse(sv)>Date.parse(_ordersServerTS);}
 async function flushPushes(){
   if(syncMode!=='cloud')return;
   const keys=Array.from(_needPush);
   let allOk=true;
   for(let i=0;i<keys.length;i++){
-    const key=keys[i];const value=(key==='menu')?MENU:ORDERS;
+    const key=keys[i];
+    if(key==='orders'&&await sbOrdersServerNewer()){
+      /* refuse to clobber a newer server copy; keep local intact, stay Not synced */
+      allOk=false;continue;}
+    const value=(key==='menu')?MENU:ORDERS;
     let ok=false;try{ok=await sbWrite(key,value);}catch(e){ok=false;}
     if(ok)_needPush.delete(key);else allOk=false;}
   if(allOk&&_needPush.size===0){_pushFailed=false;clearDirty();setChipState('synced');}
@@ -886,7 +981,7 @@ async function flushPushes(){
 const _origSaveMenuLocal=saveMenuLocal;
 saveMenuLocal=function(){const r=_origSaveMenuLocal.apply(this,arguments);schedulePush('menu');return r;};
 const _origSaveOrdersLocal=saveOrdersLocal;
-saveOrdersLocal=function(){const r=_origSaveOrdersLocal.apply(this,arguments);schedulePush('orders');return r;};
+saveOrdersLocal=function(){const r=_origSaveOrdersLocal.apply(this,arguments);if(!_holdOrdersPush)schedulePush('orders');return r;};
 
 /* ----- apply one server key to local (server-wins); keep the browser copy in step.
    Called with _suppressPush already true so the local save does not echo a push. ----- */
@@ -947,6 +1042,7 @@ async function reconcile(){
   const rows=res.rows;
   const rMenu=rows.find(x=>x&&x.key==='menu');
   const rOrders=rows.find(x=>x&&x.key==='orders');
+  if(rOrders&&rOrders.updated_at)_ordersServerTS=rOrders.updated_at;   /* clobber-guard baseline */
   /* menu and orders are reconciled independently */
   const pushKeys=[];
   _suppressPush=true;
@@ -999,6 +1095,6 @@ async function boot(){
   }else{
     showSignin();setChipState('local');
   }
-  refreshDatalist();renderMenu();renderHistory();ensureBlank();$('f_order').value=todayISO();}
+  refreshDatalist();renderMenu();renderHistory();ensureBlank();$('f_order').value=todayISO();wireAutosave();}
 boot();
 </script></body></html>
