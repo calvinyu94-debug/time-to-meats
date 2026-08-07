@@ -158,14 +158,19 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 .mv-month{color:#C1272D;font-weight:900;font-size:18px;letter-spacing:1px;white-space:nowrap;}
 .mv-cols{column-count:3;column-gap:12px;margin-top:6px;}
 /* Flowing rows: individual item rows flow across columns (was atomic tables). */
-.cat{break-inside:auto;margin:0 0 5px;}
-.cat h3{background:#C1272D;color:#fff;margin:0 0 1px;padding:2px 8px;border-radius:4px 4px 0 0;font-size:10px;letter-spacing:.3px;text-transform:uppercase;break-after:avoid;}
-.cat .row{display:flex;gap:4px;align-items:baseline;break-inside:avoid;font-size:8px;line-height:1.12;padding:1px 5px;border-bottom:1px solid #f2eae6;}
+/* Shared column geometry: header labels reuse these so they track the row cells automatically. */
+.cat{--mv-px:5px;--mv-gap:4px;--mv-pr-w:30px;break-inside:auto;margin:0 0 5px;}
+.cat h3{display:flex;align-items:baseline;gap:var(--mv-gap);background:#C1272D;color:#fff;margin:0 0 1px;padding:2px var(--mv-px);border-radius:4px 4px 0 0;font-size:10px;letter-spacing:.3px;text-transform:uppercase;break-after:avoid;}
+.cat h3 .cn{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:clip;}
+.cat h3 .hl{flex:none;opacity:.8;font-weight:600;font-size:7px;letter-spacing:.4px;text-align:right;white-space:nowrap;}
+.cat h3 .hl.pr{width:var(--mv-pr-w);}
+.cat h3.no-hl .hl{display:none;}
+.cat .row{display:flex;gap:var(--mv-gap);align-items:baseline;break-inside:avoid;font-size:8px;line-height:1.12;padding:1px var(--mv-px);border-bottom:1px solid #f2eae6;}
 .cat .row.ev{background:#faf4f2;}
 .cat .row .c{flex:none;width:30px;color:#C1272D;font-weight:500;white-space:nowrap;}
 .cat .row .nm{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;color:#1f1f1f;}
 .cat .row .mo{flex:none;text-align:right;color:#666;white-space:nowrap;}
-.cat .row .pr{flex:none;width:30px;text-align:right;color:#C1272D;font-weight:800;white-space:nowrap;}
+.cat .row .pr{flex:none;width:var(--mv-pr-w);text-align:right;color:#C1272D;font-weight:800;white-space:nowrap;}
 /* keep heading grouped with its first two rows (no orphan heading) */
 .cat h3 + .row,.cat h3 + .row + .row{break-before:avoid;}
 .mv-foot{margin-top:8px;border-top:3px solid #C1272D;padding-top:6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 14px;font-size:10px;color:#222;line-height:1.3;}
@@ -683,7 +688,7 @@ function renderMenuView(){
   let cols='';
   order.forEach(c=>{
     const rows=cats[c].map((m,i)=>`<div class="row ${i%2?'od':'ev'}"><span class="c">${esc(m.code)}</span><span class="nm">${esc(m.name)}</span><span class="mo">${esc(normMin(m.min))}</span><span class="pr">${money(m.price)}</span></div>`).join('');
-    cols+=`<div class="cat"><h3>${icon[c]||'🍖'} ${esc(c)}</h3>${rows}</div>`;
+    cols+=`<div class="cat"><h3><span class="cn">${icon[c]||'🍖'} ${esc(c)}</span><span class="hl mo">MIN ORDER</span><span class="hl pr">PRICE</span></h3>${rows}</div>`;
   });
   const month=($('mv-month').value||monthYear());
   $('menusheet').innerHTML=
@@ -712,7 +717,18 @@ function renderMenuView(){
     `</div>`;
 }
 function openMenu(){ if(!$('mv-month').value)$('mv-month').value=monthYear();
-  renderMenuView(); $('menuview').classList.add('on'); document.body.classList.add('menu-open'); window.scrollTo(0,0);}
+  renderMenuView(); $('menuview').classList.add('on'); document.body.classList.add('menu-open'); dropCollidingLabels(); window.scrollTo(0,0);}
+/* If the category name would collide with the header labels on any band, drop the labels
+   for that band (never truncate or shrink the name). Returns the list of dropped bands. */
+function dropCollidingLabels(){
+  const dropped=[];
+  document.querySelectorAll('.mv-cols .cat h3').forEach(h=>{
+    const cn=h.querySelector('.cn'); if(!cn) return;
+    h.classList.remove('no-hl');
+    if(cn.scrollWidth>cn.clientWidth+0.5){ h.classList.add('no-hl'); dropped.push(cn.textContent.trim()); }
+  });
+  return dropped;
+}
 function closeMenu(){ $('menuview').classList.remove('on'); document.body.classList.remove('menu-open');}
 function printMenu(){ window.print(); }
 
