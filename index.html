@@ -580,6 +580,10 @@ let MENU = [{"code": "A1", "name": "Beef Chuck Dice Prime Grade 頂級肥牛粒"
 const $=id=>document.getElementById(id);
 const money=n=>'$'+(Number(n)||0).toFixed(2);
 const byCode=c=>MENU.find(m=>m.code.toUpperCase()===String(c).trim().toUpperCase());
+/* Single source of truth for the business owner. Used by the invoice/menu footer
+   and the account avatar so the person's name lives in exactly one place. */
+const OWNER_NAME='Alex Phung';
+const OWNER_EMAIL='timetomeats@gmail.com';
 function makeRow(){
   const tr=document.createElement('tr'); tr.className='blank';
   tr.innerHTML='<td class="col-code" data-label="Code"><input class="cellin code" list="codelist" placeholder="code"></td>'+
@@ -777,7 +781,7 @@ function renderMenuView(){
     `<div class="mv-foot">`+
     `<span class="fitem"><span class="fic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span><b>E-transfer password</b>&nbsp;<span class="pw">Alex88</span></span>`+
     `<span class="fsep">|</span>`+
-    `<span class="fitem"><b>Alex Phung</b>`+
+    `<span class="fitem"><b>${esc(OWNER_NAME)}</b>`+
     `<span><svg class="mini" viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l1 5-2 1a11 11 0 006 6l1-2 5 1v4a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z"/></svg>(604) 618-8326</span>`+
     `<span><svg class="mini" viewBox="0 0 24 24" fill="none" stroke="#C1272D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></svg>timetomeats@gmail.com</span></span>`+
     `</div>`;
@@ -1247,12 +1251,21 @@ function initialsFromEmail(e){
   const ini=parts.length>=2?(parts[0][0]+parts[1][0]):local.slice(0,2);
   return (ini||'').toUpperCase();
 }
+function initialsFromName(n){
+  const words=(''+(n||'')).trim().split(/\s+/).filter(Boolean);
+  return ((words[0]?words[0][0]:'')+(words[1]?words[1][0]:'')).toUpperCase();
+}
+function isOwnerEmail(e){return !!e&&(''+e).trim().toLowerCase()===OWNER_EMAIL.toLowerCase();}
 function updateAvatar(){
   const b=$('avatarbtn');if(!b)return;
-  const ini=initialsFromEmail(SB.email);
+  /* Fallback chain: owner display name → email-derived initials → neutral person icon.
+     Owner initials come from the person's name, never the business email local part. */
+  const owner=isOwnerEmail(SB.email);
+  const ini=owner?initialsFromName(OWNER_NAME):initialsFromEmail(SB.email);
+  const label=owner?OWNER_NAME:SB.email;
   if(ini){
     b.textContent=ini;b.classList.remove('tb-avatar-anon');
-    b.setAttribute('aria-label','Account menu for '+SB.email);b.title=SB.email;
+    b.setAttribute('aria-label','Account menu for '+label);b.title=label;
   }else{
     /* stale/old-shape session with no email: neutral person icon, never garbage */
     b.innerHTML=PERSON_ICON;b.classList.add('tb-avatar-anon');
