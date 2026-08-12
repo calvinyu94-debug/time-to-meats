@@ -227,6 +227,9 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 #histview.on{display:block;}
 .hv-bar{position:sticky;top:0;z-index:2;background:#263238;color:#fff;display:flex;gap:10px;align-items:center;padding:10px 16px;flex-wrap:wrap;}
 .hv-bar .t{font-weight:800;}
+.hv-search{margin-left:auto;flex:1 1 200px;max-width:340px;min-width:150px;padding:7px 12px;border:1px solid #455a64;border-radius:6px;background:#1c262b;color:#fff;font-size:14px;}
+.hv-search::placeholder{color:#90a4ae;}
+.hv-search:focus{outline:none;border-color:#b71c1c;box-shadow:0 0 0 2px rgba(183,28,28,.35);}
 .hv-wrap{max-width:940px;margin:16px auto;padding:0 16px 40px;}
 .hmonth{margin-bottom:20px;}
 .hmonth-h{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#37474F;color:#fff;padding:9px 14px;border-radius:8px 8px 0 0;cursor:pointer;}
@@ -550,7 +553,8 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   <div class="hv-bar">
     <span class="t">🕘 Order History</span>
     <button class="ghost" onclick="closeHistory()">✕ Close</button>
-    <span id="histcount" style="margin-left:auto;font-size:12px;opacity:.85"></span>
+    <input id="histsearch" class="hv-search" type="search" placeholder="Search customer, item, or date…" oninput="setHistQuery(this.value)" aria-label="Search orders">
+    <span id="histcount" style="font-size:12px;opacity:.85"></span>
   </div>
   <div class="hv-wrap" id="histbody"></div>
 </div>
@@ -807,6 +811,7 @@ const LSKEY_O='ttm_orders_v1';
 let ORDERS=[];
 let histOpen={months:new Set(),days:new Set()};  /* accordion state; keys YYYY-MM and YYYY-MM-DD */
 let _histSeeded=false;         /* seed current month open once, not on every render */
+let histQuery='';              /* live order-history search text; empty = show all */
 let openOrderId=null;          /* id of the invoice open in the form; single owner */
 let _autosaveTimer=null;       /* 1200ms local autosave debounce */
 let _cloudIdleTimer=null;      /* 30s idle -> cloud push */
@@ -917,6 +922,13 @@ function deleteOrder(id){
   saveOrdersLocal();
   renderHistory();}
 function toggleDetail(id){const el=document.getElementById('det-'+id);if(el)el.style.display=(el.style.display==='none'?'block':'none');}
+function setHistQuery(v){histQuery=v;renderHistory();}
+/* Match an order against a lowercased query across customer, address, delivery,
+   date, and every line's code/name/per-line customer label. */
+function orderMatches(o,q){
+  const hay=[o.to,o.address,o.delivery,o.orderDate];
+  (o.lines||[]).forEach(l=>hay.push(l.code,l.name,l.cust));
+  return hay.some(x=>x!=null&&String(x).toLowerCase().indexOf(q)!==-1);}
 function toggleMonth(k){const s=histOpen.months;s.has(k)?s.delete(k):s.add(k);renderHistory();}
 function toggleDay(k){const s=histOpen.days;s.has(k)?s.delete(k):s.add(k);renderHistory();}
 function loadOrder(id){const o=ORDERS.find(x=>x.id===id);if(!o)return;
@@ -932,8 +944,15 @@ function loadOrder(id){const o=ORDERS.find(x=>x.id===id);if(!o)return;
   ensureBlank();totals();openOrderId=o.id;setSaveState('idle');closeHistory();window.scrollTo(0,0);}
 function renderHistory(){
   const wrap=$('histbody');
-  $('histcount').textContent=ORDERS.length+(ORDERS.length===1?' order':' orders')+' saved';
-  if(!ORDERS.length){wrap.innerHTML='<div class="hempty">No saved orders yet. Fill out an order, then click <b>✔ Save Order</b> in the top bar.</div>';return;}
+  if(!ORDERS.length){$('histcount').textContent='0 orders saved';wrap.innerHTML='<div class="hempty">No saved orders yet. Fill out an order, then click <b>✔ Save Order</b> in the top bar.</div>';return;}
+  /* Apply the live search filter. A non-empty query narrows the set and, below,
+     forces every month/day with a match open so results are visible at once. */
+  const q=histQuery.trim().toLowerCase();
+  const shown=q?ORDERS.filter(o=>orderMatches(o,q)):ORDERS;
+  $('histcount').textContent=q
+    ?(shown.length+' of '+ORDERS.length+' match')
+    :(ORDERS.length+(ORDERS.length===1?' order':' orders')+' saved');
+  if(!shown.length){wrap.innerHTML='<div class="hempty">No orders match <b>'+esc(histQuery.trim())+'</b>. Try a customer name, item, or date.</div>';return;}
   /* Seed the current month open on the first render only, so a user-collapsed
      current month is not forced back open by a later rebuild (e.g. after delete). */
   if(!_histSeeded){histOpen.months.add(monthKey(todayISO()));_histSeeded=true;}
@@ -941,7 +960,7 @@ function renderHistory(){
      Month key via monthKey (local-parse). Day key is the raw orderDate string —
      no Date object, so no timezone shift can move an order to the wrong day. */
   const groups={};
-  ORDERS.forEach(o=>{const mk=monthKey(o.orderDate),dk=o.orderDate||'';
+  shown.forEach(o=>{const mk=monthKey(o.orderDate),dk=o.orderDate||'';
     (groups[mk]||(groups[mk]={}));(groups[mk][dk]||(groups[mk][dk]=[])).push(o);});
   const months=Object.keys(groups).sort().reverse();  /* YYYY-MM sorts lexically */
   let html='';
@@ -949,14 +968,14 @@ function renderHistory(){
     const days=Object.keys(groups[mk]).sort().reverse();  /* YYYY-MM-DD sorts lexically */
     let mOrders=0,mItems=0,mRev=0;
     days.forEach(dk=>groups[mk][dk].forEach(o=>{mOrders++;mItems+=(o.lines?o.lines.length:0);mRev+=(o.costTotal||0);}));
-    const mOpen=histOpen.months.has(mk);
+    const mOpen=q?true:histOpen.months.has(mk);
     html+=`<div class="hmonth"><div class="hmonth-h" onclick="toggleMonth('${mk}')"><div class="hmh-l"><span class="chev" style="transform:rotate(${mOpen?'0':'-90'}deg)">▾</span><b>${monthLabel(mk)}</b> <span>${mOrders} order${mOrders>1?'s':''} · ${mItems} items · ${money(mRev)}</span></div><button class="hmbtn" onclick="event.stopPropagation();openSummary('${mk}')">📄 Month Summary PDF</button></div>`;
     if(mOpen){
       html+='<div class="hmonth-body">';
       days.forEach(dk=>{
         const dlist=groups[mk][dk].slice().sort((a,b)=>b.id-a.id);  /* newest-first within a day */
         const dRev=dlist.reduce((s,o)=>s+(o.costTotal||0),0);
-        const dOpen=histOpen.days.has(dk);
+        const dOpen=q?true:histOpen.days.has(dk);
         html+=`<div class="hday"><div class="hday-h" onclick="toggleDay('${dk}')"><div class="hmh-l"><span class="chev" style="transform:rotate(${dOpen?'0':'-90'}deg)">▾</span><b>${dayLabel(dk)}</b> <span>${dlist.length} order${dlist.length>1?'s':''} · ${money(dRev)}</span></div></div>`;
         if(dOpen){
           html+='<div class="htable"><div class="hrow head"><span>Date</span><span>Customer</span><span>Delivery</span><span class="r">Items</span><span class="r">Total</span><span></span></div>';
