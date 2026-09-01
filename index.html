@@ -533,6 +533,7 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
     </table></div>
     <div class="mbtns">
       <button class="ghost" onclick="addMenuRow()">＋ Add item</button>
+      <button class="ghost" onclick="sortMenuNow()" title="Put the list back in code order — A1, A2, A3 … P1, P2 … within each section">⇅ Sort list</button>
       <button class="ghost" onclick="document.getElementById('mfile').click()">⬆ Load menu (Excel / CSV)</button>
       <span id="savestat" style="opacity:.5;font-size:12px;margin-left:2px;align-self:center">Auto-save on</span>
       <button onclick="openMenu()">📋 Generate customer menu →</button>
@@ -744,6 +745,16 @@ function restoreMenuFocus(ref){if(!ref)return;
   const el=tr.querySelectorAll('input')[ref.col];if(!el)return;
   el.focus();if(ref.start!=null){try{el.setSelectionRange(ref.start,ref.end);}catch(_){}}
   el.scrollIntoView({block:'nearest'});}
+/* Sort the list on demand. The list already keeps itself in order, so this is here for the
+   times that is not obvious: after an import, or when the owner simply wants to see it done.
+   It always reports back, so pressing it never looks like nothing happened. */
+function sortMenuNow(){const moved=normalizeMenuOrder();
+  renderMenu();refreshDatalist();
+  if(moved)saveMenuLocal();
+  const el=$('savestat');if(!el)return;
+  el.textContent=moved?'List sorted ✓':'Already in order ✓';el.style.opacity='1';
+  clearTimeout(flashSaved._t);
+  flashSaved._t=setTimeout(()=>{el.textContent='Auto-save on';el.style.opacity='.5';},1600);}
 /* A change event fires while the browser is still moving focus off the edited box — at that
    moment nothing is focused yet — so the redraw waits one tick. By then focus has landed on
    whichever cell the user tabbed or clicked into, and the caret can be carried across to it. */
