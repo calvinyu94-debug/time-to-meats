@@ -155,7 +155,13 @@ tr.total td{background:var(--total-bg);color:var(--total-fg);font-weight:800;fon
 @media print{
   @page{size:letter;margin:11mm;}
   body{background:#fff;}
-  .toolbar,.panel,.hint,.badge,.col-tools,.col-code,.col-min,.addrow{display:none!important;}
+  .toolbar,.panel,.hint,.badge,.col-tools,.col-min,.addrow{display:none!important;}
+  /* Item code prints on the sheet. The column sizes itself to the longest code (and the
+     CODE header), so any code length fits with no clipping. On paper the input is swapped
+     for its plain-text copy (.codeprint), because an input box has a fixed width. */
+  #ordertbl .col-code{width:1%;white-space:nowrap;padding:2px 10px;text-align:center;}
+  #ordertbl td.col-code .cellin.code{display:none!important;}
+  #ordertbl td.col-code .codeprint{display:inline!important;font-weight:800;color:var(--code-fg);text-transform:uppercase;}
   .signin-overlay,.syncchip{display:none!important;}
   .sheet{box-shadow:none;margin:0;max-width:100%;border-radius:0;}
   .inner{padding:4px 6px;}
@@ -591,7 +597,7 @@ const OWNER_NAME='Alex Phung';
 const OWNER_EMAIL='timetomeats@gmail.com';
 function makeRow(){
   const tr=document.createElement('tr'); tr.className='blank';
-  tr.innerHTML='<td class="col-code" data-label="Code"><input class="cellin code" list="codelist" placeholder="code"></td>'+
+  tr.innerHTML='<td class="col-code" data-label="Code"><input class="cellin code" list="codelist" placeholder="code"><span class="codeprint" style="display:none"></span></td>'+
     '<td class="items" data-label="Item"></td><td data-label="Customer Order"><input class="cellin custord" style="text-align:center" placeholder=""></td>'+
     '<td data-label="Actual Qty"><input class="cellin qty" type="number" min="0" step="any"></td>'+
     '<td class="num price" data-label="Unit Price"></td><td class="num cost" data-label="Cost"></td>'+
@@ -633,6 +639,7 @@ function renderCodeDD(dd,input,tr){
   });
 }
 function fillRow(tr){const m=byCode(tr.querySelector('.code').value);
+  tr.querySelector('.codeprint').textContent=tr.querySelector('.code').value.trim(); /* plain-text copy for print */
   tr.querySelector('.items').textContent=m?m.name:'';
   tr.querySelector('.price').textContent=m?money(m.price):'';
   tr.querySelector('.items').classList.toggle('auto',!!m);
